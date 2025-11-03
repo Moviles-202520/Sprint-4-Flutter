@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "670961505855",
+    "project_id": "punto-neutro---flutter",
+    "storage_bucket": "punto-neutro---flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:670961505855:android:cd910978d1b712ca30ca8a",
+        "android_client_info": {
+          "package_name": "com.example.punto_neutro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7y5cqPhu5mAU4MlX1y0lnjTOec-ijHxw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
