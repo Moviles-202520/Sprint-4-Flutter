@@ -5,6 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'core/image_cache_service.dart';
+import 'data/workers/notification_sync_worker.dart';
+import 'data/workers/bookmark_sync_worker.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Inicializar Hive y abrir cajas necesarias para cache offline
@@ -25,6 +28,26 @@ void main() async {
     url: 'https://oikdnxujjmkbewdhpyor.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pa2RueHVqam1rYmV3ZGhweW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MDU0MjksImV4cCI6MjA3NDk4MTQyOX0.htw3cdc-wFcBjKKPP4aEC9K9xBEnvPULMToP_PIuaLI',
   );
+
+  // ✅ INICIALIZAR NOTIFICATION SYNC WORKER (B.4 - Eventual Connectivity)
+  try {
+    await NotificationSyncWorker.initialize();
+    await NotificationSyncWorker.registerPeriodicSync();
+    print('✅ Notification Sync Worker registrado');
+  } catch (e, st) {
+    print('⚠️ Error inicializando Notification Sync Worker: $e');
+    print(st);
+  }
+
+  // ✅ INICIALIZAR BOOKMARK SYNC WORKER (C.3 - LWW Reconciliation)
+  try {
+    await BookmarkSyncWorker.initialize();
+    await BookmarkSyncWorker.registerPeriodicSync();
+    print('✅ Bookmark Sync Worker registrado');
+  } catch (e, st) {
+    print('⚠️ Error inicializando Bookmark Sync Worker: $e');
+    print(st);
+  }
   
   runApp(const PuntoNeutroApp());
 }
