@@ -78,7 +78,7 @@ class BookmarkSyncWorker {
       ),
       backoffPolicy: BackoffPolicy.exponential,
       backoffPolicyDelay: const Duration(seconds: 2),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
 
     print('✅ [Bookmark Sync] Tarea periódica registrada (cada 15 min)');

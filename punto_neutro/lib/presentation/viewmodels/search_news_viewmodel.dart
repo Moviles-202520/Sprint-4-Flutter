@@ -3,7 +3,7 @@
 // Purpose: Manage news search state and operations
 // Features: FTS, autocomplete, category filter, sort
 // =====================================================
-
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../domain/models/news_item.dart';
 import '../../domain/repositories/news_repository.dart';
@@ -25,6 +25,8 @@ class SearchNewsViewModel extends ChangeNotifier {
   List<NewsItem> _searchResults = [];
   List<String> _suggestions = [];
   String _query = '';
+  Timer? _suggestionsDebounce;
+  static const _debounceDuration = Duration(milliseconds: 350);
   String? _categoryFilter;
   SearchSortOrder _sortOrder = SearchSortOrder.relevance;
   bool _isSearching = false;
@@ -51,13 +53,25 @@ class SearchNewsViewModel extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    // Load suggestions for non-empty queries
-    if (value.trim().isNotEmpty && value.length >= 2) {
-      _loadSuggestions(value);
-    } else {
+    _suggestionsDebounce?.cancel();
+
+    final trimmed = value.trim();
+
+    if (trimmed.isEmpty || trimmed.length < 2) {
       _suggestions.clear();
       notifyListeners();
+      return;
     }
+
+    _suggestionsDebounce = Timer(_debounceDuration, () {
+      _loadSuggestions(trimmed);
+    });
+  }
+
+  @override
+  void dispose() {
+    _suggestionsDebounce?.cancel();
+    super.dispose();
   }
 
   /// Set category filter

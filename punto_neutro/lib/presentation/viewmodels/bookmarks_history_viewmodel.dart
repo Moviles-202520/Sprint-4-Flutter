@@ -24,11 +24,13 @@ class BookmarksHistoryViewModel extends ChangeNotifier {
   List<Bookmark> _bookmarks = [];
   bool _isLoadingBookmarks = false;
   String? _bookmarksError;
+  bool _bookmarksLoaded = false;
 
   // State - Reading History
   List<ReadingHistory> _history = [];
   bool _isLoadingHistory = false;
   String? _historyError;
+  bool _historyLoaded = false;
 
   // State - Operations
   bool _isDeleting = false;
@@ -51,7 +53,12 @@ class BookmarksHistoryViewModel extends ChangeNotifier {
   bool get isDeleting => _isDeleting;
 
   /// Load bookmarks from repository
-  Future<void> loadBookmarks() async {
+  Future<void> loadBookmarks({bool forceRefresh = false}) async {
+    // Si ya cargamos una vez y no es un refresh explícito, no volvemos a pegarle al repo
+    if (_bookmarksLoaded && !forceRefresh) {
+      return;
+    }
+
     _isLoadingBookmarks = true;
     _bookmarksError = null;
     notifyListeners();
@@ -59,6 +66,7 @@ class BookmarksHistoryViewModel extends ChangeNotifier {
     try {
       _bookmarks = await _bookmarkRepository.getBookmarks(includeDeleted: false);
       _bookmarksError = null;
+      _bookmarksLoaded = true; // 👈 marcamos como cargado
     } catch (e) {
       _bookmarksError = 'Error al cargar marcadores: $e';
       print('Error loading bookmarks: $e');
@@ -69,14 +77,30 @@ class BookmarksHistoryViewModel extends ChangeNotifier {
   }
 
   /// Load reading history from repository
-  Future<void> loadHistory({int? limit}) async {
+  Future<void> loadHistory({int? limit, bool forceRefresh = false}) async {
+    // Evitar lecturas repetidas si ya está cargado y no es refresh
+    if (_historyLoaded && !forceRefresh) {
+      return;
+    }
+
     _isLoadingHistory = true;
     _historyError = null;
     notifyListeners();
 
     try {
-      _history = await _historyRepository.getAllHistory(limit: limit ?? 100);
+      final results =
+      await _historyRepository.getAllHistory(limit: limit ?? 100);
+
+      // Limitar explícitamente la cantidad de elementos en memoria / UI
+      const maxEntries = 100;
+      if (results.length > maxEntries) {
+        _history = results.sublist(results.length - maxEntries);
+      } else {
+        _history = results;
+      }
+
       _historyError = null;
+      _historyLoaded = true;
     } catch (e) {
       _historyError = 'Error al cargar historial: $e';
       print('Error loading history: $e');
@@ -88,24 +112,14 @@ class BookmarksHistoryViewModel extends ChangeNotifier {
 
   /// Refresh bookmarks (pull-to-refresh)
   Future<void> refreshBookmarks() async {
-    try {
-      _bookmarks = await _bookmarkRepository.getBookmarks(includeDeleted: false);
-      _bookmarksError = null;
-      notifyListeners();
-    } catch (e) {
-      print('Error refreshing bookmarks: $e');
-    }
+    _bookmarksLoaded = false; // invalidamos caché
+    await loadBookmarks(forceRefresh: true);
   }
 
   /// Refresh history (pull-to-refresh)
   Future<void> refreshHistory() async {
-    try {
-      _history = await _historyRepository.getAllHistory(limit: 100);
-      _historyError = null;
-      notifyListeners();
-    } catch (e) {
-      print('Error refreshing history: $e');
-    }
+    _historyLoaded = false;
+    await loadHistory(limit: 100, forceRefresh: true);
   }
 
   /// Remove a bookmark by newsItemId
@@ -149,7 +163,7 @@ class BookmarksHistoryViewModel extends ChangeNotifier {
       print('Error deleting history entry: $e');
       _historyError = 'Error al eliminar entrada del historial';
       // Revert optimistic update
-      await loadHistory();
+      await loadHistory(forceRefresh: true);
     } finally {
       _isDeleting = false;
       notifyListeners();
@@ -173,7 +187,7 @@ class BookmarksHistoryViewModel extends ChangeNotifier {
       print('Error clearing all history: $e');
       _historyError = 'Error al limpiar historial';
       // Revert optimistic update
-      await loadHistory();
+      await loadHistory(forceRefresh: true);
     } finally {
       _isDeleting = false;
       notifyListeners();
@@ -191,7 +205,7 @@ class BookmarksHistoryViewModel extends ChangeNotifier {
       final deletedCount = await _historyRepository.deleteOldHistory(daysOld);
       
       // Reload to reflect changes
-      await loadHistory();
+      await loadHistory(forceRefresh: true);
       
       print('Deleted $deletedCount old history entries');
     } catch (e) {
