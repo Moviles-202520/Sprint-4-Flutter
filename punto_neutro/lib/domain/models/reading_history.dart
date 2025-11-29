@@ -16,6 +16,10 @@ class ReadingHistory {
   // Local-only fields (not synced to server)
   final bool isSynced; // True if uploaded to server
   final DateTime? lastSyncAttempt;
+  
+  // ⚠️ NUEVO: Datos del JOIN con news_items
+  final String? newsTitle;
+  final String? newsImageUrl;
 
   const ReadingHistory({
     this.readId,
@@ -28,6 +32,8 @@ class ReadingHistory {
     required this.createdAt,
     this.isSynced = false,
     this.lastSyncAttempt,
+    this.newsTitle, // ⚠️ NUEVO
+    this.newsImageUrl, // ⚠️ NUEVO
   });
 
   /// Calculate duration in seconds from startedAt and endedAt

@@ -8,16 +8,20 @@ import 'package:flutter/foundation.dart';
 import '../../domain/repositories/user_preferences_repository.dart';
 import '../../domain/models/user_preferences.dart';
 import '../../domain/models/favorite_category.dart';
+import 'theme_viewmodel.dart';
 
 class PreferencesViewModel extends ChangeNotifier {
   final UserPreferencesRepository _repository;
   final int _userProfileId;
+  final ThemeViewModel? _themeViewModel;
 
   PreferencesViewModel({
     required UserPreferencesRepository repository,
     required int userProfileId,
+    ThemeViewModel? themeViewModel,
   })  : _repository = repository,
-        _userProfileId = userProfileId;
+        _userProfileId = userProfileId,
+        _themeViewModel = themeViewModel;
 
   // State
   UserPreferences? _preferences;
@@ -56,6 +60,11 @@ class PreferencesViewModel extends ChangeNotifier {
         await _repository.upsertPreferences(_preferences!);
       }
 
+      // Sync theme with global ThemeViewModel
+      if (_themeViewModel != null) {
+        await _themeViewModel.syncWithServerPreferences(_preferences!.darkMode);
+      }
+
       // Load favorite categories
       _favoriteCategories =
           await _repository.getFavoriteCategories(_userProfileId);
@@ -78,13 +87,21 @@ class PreferencesViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final newDarkMode = !_preferences!.darkMode;
+      
       final updated = _preferences!.copyWith(
-        darkMode: !_preferences!.darkMode,
+        darkMode: newDarkMode,
         updatedAt: DateTime.now(),
       );
 
       await _repository.upsertPreferences(updated);
       _preferences = updated;
+      
+      // Update global theme
+      if (_themeViewModel != null) {
+        await _themeViewModel.setDarkMode(newDarkMode);
+      }
+      
       _error = null;
     } catch (e) {
       _error = 'Error updating dark mode: $e';

@@ -7,15 +7,28 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'core/image_cache_service.dart';
 import 'data/workers/notification_sync_worker.dart';
 import 'data/workers/bookmark_sync_worker.dart';
+import 'data/services/reading_history_local_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // ⚠️ SKIP: Reading History Database (SQLite no funciona en web)
+  // Pre-inicializar Reading History Database
+  // try {
+  //   await ReadingHistoryLocalStorage().database;
+  //   print('✅ Reading History Database inicializada');
+  // } catch (e, st) {
+  //   print('! Error inicializando Reading History Database: $e');
+  //   print(st);
+  // }
+  
   // Inicializar Hive y abrir cajas necesarias para cache offline
   try {
     await Hive.initFlutter();
     await Hive.openBox<dynamic>('news_cache');
     await Hive.openBox<dynamic>('comments_cache');
     await Hive.openBox<dynamic>('ratings_cache');
+    await Hive.openBox<dynamic>('theme_settings'); // Theme box
     await ImageCacheService.ensureBoxOpened();
     // Las "pending" se almacenan como keys dentro de las cajas de comments/ratings
     print('✅ Hive inicializado y cajas abiertas');
@@ -29,25 +42,27 @@ void main() async {
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pa2RueHVqam1rYmV3ZGhweW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MDU0MjksImV4cCI6MjA3NDk4MTQyOX0.htw3cdc-wFcBjKKPP4aEC9K9xBEnvPULMToP_PIuaLI',
   );
 
+  // ⚠️ SKIP: Notification Sync Worker (WorkManager no funciona en web)
   // ✅ INICIALIZAR NOTIFICATION SYNC WORKER (B.4 - Eventual Connectivity)
-  try {
-    await NotificationSyncWorker.initialize();
-    await NotificationSyncWorker.registerPeriodicSync();
-    print('✅ Notification Sync Worker registrado');
-  } catch (e, st) {
-    print('⚠️ Error inicializando Notification Sync Worker: $e');
-    print(st);
-  }
+  // try {
+  //   await NotificationSyncWorker.initialize();
+  //   await NotificationSyncWorker.registerPeriodicSync();
+  //   print('✅ Notification Sync Worker registrado');
+  // } catch (e, st) {
+  //   print('! Error inicializando Notification Sync Worker: $e');
+  //   print(st);
+  // }
 
+  // ⚠️ SKIP: Bookmark Sync Worker (WorkManager no funciona en web)
   // ✅ INICIALIZAR BOOKMARK SYNC WORKER (C.3 - LWW Reconciliation)
-  try {
-    await BookmarkSyncWorker.initialize();
-    await BookmarkSyncWorker.registerPeriodicSync();
-    print('✅ Bookmark Sync Worker registrado');
-  } catch (e, st) {
-    print('⚠️ Error inicializando Bookmark Sync Worker: $e');
-    print(st);
-  }
+  // try {
+  //   await BookmarkSyncWorker.initialize();
+  //   await BookmarkSyncWorker.registerPeriodicSync();
+  //   print('✅ Bookmark Sync Worker registrado');
+  // } catch (e, st) {
+  //   print('! Error inicializando Bookmark Sync Worker: $e');
+  //   print(st);
+  // }
   
   runApp(const PuntoNeutroApp());
 }

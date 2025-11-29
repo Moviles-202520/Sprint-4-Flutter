@@ -7,9 +7,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/create_news_viewmodel.dart';
+import '../viewmodels/auth_view_model.dart';
 import '../../data/repositories/categories_repository.dart';
+import '../../data/repositories/hybrid_news_repository.dart';
 
-class CreateNewsScreen extends StatefulWidget {
+class CreateNewsScreen extends StatelessWidget {
   final String? newsItemId; // null for create, set for edit
 
   const CreateNewsScreen({
@@ -18,10 +20,30 @@ class CreateNewsScreen extends StatefulWidget {
   });
 
   @override
-  State<CreateNewsScreen> createState() => _CreateNewsScreenState();
+  Widget build(BuildContext context) {
+    // Get userProfileId from AuthViewModel
+    final userProfileId = context.read<AuthViewModel>().userProfileId?.toString() ?? '1';
+    
+    return ChangeNotifierProvider(
+      create: (_) => CreateNewsViewModel(
+        repository: HybridNewsRepository(),
+        userProfileId: userProfileId,
+      ),
+      child: _CreateNewsContent(newsItemId: newsItemId),
+    );
+  }
 }
 
-class _CreateNewsScreenState extends State<CreateNewsScreen> {
+class _CreateNewsContent extends StatefulWidget {
+  final String? newsItemId;
+
+  const _CreateNewsContent({this.newsItemId});
+
+  @override
+  State<_CreateNewsContent> createState() => _CreateNewsScreenState();
+}
+
+class _CreateNewsScreenState extends State<_CreateNewsContent> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _shortDescController = TextEditingController();
@@ -299,7 +321,7 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
   }
 
   Widget _buildCategorySelector(CreateNewsViewModel viewModel) {
-    final categories = context.read<CategoriesRepository>().getAllCategories();
+    final categories = CategoriesRepository.categories;
 
     return DropdownButtonFormField<String>(
       value: viewModel.categoryId.isEmpty ? null : viewModel.categoryId,

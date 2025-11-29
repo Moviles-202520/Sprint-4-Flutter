@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:punto_neutro/presentation/screens/LoginScreen.dart';
 import 'package:punto_neutro/presentation/viewmodels/auth_view_model.dart';
+import 'package:punto_neutro/presentation/viewmodels/theme_viewmodel.dart';
 import '../../core/analytics_service.dart';
 import '../../core/web_unload.dart';
 
@@ -82,18 +83,37 @@ class _PuntoNeutroAppState extends State<PuntoNeutroApp> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthViewModel(SupabaseAuthRepository()),
-      child: MaterialApp(
-        title: 'Punto Neutro',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primarySwatch: Colors.indigo,
-          scaffoldBackgroundColor: Colors.grey[100],
-        ),
-        home: const LoginScreen(),
-        routes: {
-          '/home': (_) => const VerifiedNewsPage(), // Home abajo
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthViewModel(SupabaseAuthRepository())),
+        ChangeNotifierProvider(create: (_) => ThemeViewModel()),
+      ],
+      child: Consumer<ThemeViewModel>(
+        builder: (context, themeViewModel, _) {
+          // Wait for theme to initialize
+          if (!themeViewModel.isInitialized) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              home: Scaffold(
+                backgroundColor: Colors.black,
+                body: Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+            );
+          }
+
+          return MaterialApp(
+            title: 'Punto Neutro',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeViewModel.lightTheme,
+            darkTheme: ThemeViewModel.darkTheme,
+            themeMode: themeViewModel.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            home: const LoginScreen(),
+            routes: {
+              '/home': (_) => const VerifiedNewsPage(), // Home abajo
+            },
+          );
         },
       ),
     );

@@ -89,7 +89,7 @@ class HybridNotificationRepository implements NotificationRepository {
   /// ✅ MARCAR COMO LEÍDA (Offline-first con cola de sincronización)
   /// Escribe localmente inmediato, sincroniza al servidor cuando hay conexión
   @override
-  Future<AppNotification> markAsRead(String notificationId) async {
+  Future<AppNotification> markAsRead(int notificationId) async {
     try {
       // 1. SIEMPRE marcar localmente primero (offline-first)
       await _localStorage.markAsReadLocal(notificationId);
@@ -214,7 +214,7 @@ class HybridNotificationRepository implements NotificationRepository {
       print('🔄 Sincronizando ${pendingNotifications.length} notificaciones pendientes...');
 
       for (final row in pendingNotifications) {
-        final notificationId = row['notification_id'] as String;
+        final notificationId = int.parse(row['notification_id'] as String);
         final pendingAction = row['pending_action'] as String?;
 
         try {

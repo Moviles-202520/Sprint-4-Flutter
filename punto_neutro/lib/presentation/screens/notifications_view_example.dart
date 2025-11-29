@@ -76,7 +76,7 @@ class _NotificationsViewExampleState extends State<NotificationsViewExample> {
   }
 
   /// ✅ MARCAR COMO LEÍDA (offline-first)
-  Future<void> _markAsRead(String notificationId) async {
+  Future<void> _markAsRead(int notificationId) async {
     try {
       await _repository.markAsRead(notificationId);
       
@@ -86,7 +86,6 @@ class _NotificationsViewExampleState extends State<NotificationsViewExample> {
         if (index != -1) {
           _notifications[index] = _notifications[index].copyWith(
             isRead: true,
-            readAt: DateTime.now(),
           );
         }
         _unreadCount = (_unreadCount - 1).clamp(0, 9999);
@@ -120,7 +119,6 @@ class _NotificationsViewExampleState extends State<NotificationsViewExample> {
         for (int i = 0; i < _notifications.length; i++) {
           _notifications[i] = _notifications[i].copyWith(
             isRead: true,
-            readAt: DateTime.now(),
           );
         }
         _unreadCount = 0;
@@ -232,7 +230,7 @@ class _NotificationsViewExampleState extends State<NotificationsViewExample> {
                       final notification = _notifications[index];
                       
                       return Dismissible(
-                        key: Key(notification.notificationId),
+                        key: Key('notification_${notification.notificationId}'),
                         direction: DismissDirection.endToStart,
                         background: Container(
                           color: Colors.green,
@@ -249,12 +247,12 @@ class _NotificationsViewExampleState extends State<NotificationsViewExample> {
                                 ? Colors.grey
                                 : Colors.blue,
                             child: Icon(
-                              _getNotificationIcon(notification.notificationType),
+                              _getNotificationIcon(notification.type.toValue()),
                               color: Colors.white,
                             ),
                           ),
                           title: Text(
-                            notification.title,
+                            notification.getMessage(),
                             style: TextStyle(
                               fontWeight: notification.isRead
                                   ? FontWeight.normal
@@ -264,7 +262,7 @@ class _NotificationsViewExampleState extends State<NotificationsViewExample> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(notification.body ?? ''),
+                              Text(notification.getPreview() ?? ''),
                               const SizedBox(height: 4),
                               Text(
                                 _formatTimestamp(notification.createdAt),

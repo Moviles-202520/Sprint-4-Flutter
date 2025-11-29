@@ -6,17 +6,38 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../viewmodels/notifications_viewmodel.dart';
+import '../viewmodels/auth_view_model.dart';
 import '../../domain/models/notification.dart';
+import '../../data/repositories/supabase_notifications_repository.dart';
 
-class NotificationsScreen extends StatefulWidget {
+class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  Widget build(BuildContext context) {
+    // Get userProfileId from AuthViewModel
+    final userProfileId = context.read<AuthViewModel>().userProfileId ?? 1;
+    
+    return ChangeNotifierProvider(
+      create: (_) => NotificationsViewModel(
+        repository: SupabaseNotificationsRepository(Supabase.instance.client),
+        userProfileId: userProfileId,
+      ),
+      child: const _NotificationsContent(),
+    );
+  }
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsContent extends StatefulWidget {
+  const _NotificationsContent();
+
+  @override
+  State<_NotificationsContent> createState() => _NotificationsContentState();
+}
+
+class _NotificationsContentState extends State<_NotificationsContent> {
   bool _showUnreadOnly = false;
 
   @override

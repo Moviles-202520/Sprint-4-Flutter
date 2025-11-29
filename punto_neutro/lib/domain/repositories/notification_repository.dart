@@ -17,7 +17,7 @@ abstract class NotificationRepository {
   /// Mark a single notification as read
   /// [notificationId] - the notification to mark as read
   /// Returns the updated notification
-  Future<AppNotification> markAsRead(String notificationId);
+  Future<AppNotification> markAsRead(int notificationId);
 
   /// Mark all notifications as read for the current user
   /// Returns the number of notifications updated

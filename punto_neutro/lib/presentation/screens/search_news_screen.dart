@@ -9,15 +9,32 @@ import 'package:provider/provider.dart';
 import '../viewmodels/search_news_viewmodel.dart';
 import '../../data/repositories/categories_repository.dart';
 import '../../domain/models/news_item.dart';
+import '../../data/repositories/hybrid_news_repository.dart';
+import '../../data/repositories/local_news_repository.dart';
+import 'news_detail_screen.dart';
 
-class SearchNewsScreen extends StatefulWidget {
+class SearchNewsScreen extends StatelessWidget {
   const SearchNewsScreen({super.key});
 
   @override
-  State<SearchNewsScreen> createState() => _SearchNewsScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => SearchNewsViewModel(
+        repository: HybridNewsRepository(),
+      ),
+      child: const _SearchNewsContent(),
+    );
+  }
 }
 
-class _SearchNewsScreenState extends State<SearchNewsScreen> {
+class _SearchNewsContent extends StatefulWidget {
+  const _SearchNewsContent();
+
+  @override
+  State<_SearchNewsContent> createState() => _SearchNewsScreenState();
+}
+
+class _SearchNewsScreenState extends State<_SearchNewsContent> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
   bool _showSuggestions = false;
@@ -125,7 +142,7 @@ class _SearchNewsScreenState extends State<SearchNewsScreen> {
   Widget _buildFilterBar() {
     return Consumer<SearchNewsViewModel>(
       builder: (context, viewModel, _) {
-        final categories = context.read<CategoriesRepository>().getAllCategories();
+        final categories = CategoriesRepository.categories;
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -465,11 +482,14 @@ class _SearchNewsScreenState extends State<SearchNewsScreen> {
   }
 
   void _navigateToNewsDetail(String newsItemId) {
-    // TODO: Implement navigation to news detail
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Navegar a noticia $newsItemId'),
-        duration: const Duration(seconds: 1),
+    // Navigate to news detail screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NewsDetailScreen(
+          news_item_id: newsItemId,
+          repository: LocalNewsRepository(),
+        ),
       ),
     );
   }

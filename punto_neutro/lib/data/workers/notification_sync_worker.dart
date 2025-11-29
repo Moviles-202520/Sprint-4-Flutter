@@ -77,7 +77,7 @@ void callbackDispatcher() {
         if (attemptCount >= 5) {
           print('❌ [Sync Worker] Límite de reintentos alcanzado para $notificationId');
           await localStorage.recordSyncError(
-            notificationId,
+            int.parse(notificationId),
             'Max retry attempts reached (5)',
           );
           errorCount++;
@@ -93,15 +93,15 @@ void callbackDispatcher() {
         try {
           if (pendingAction == 'mark_as_read') {
             // Sincronizar marcado como leída
-            await remoteRepository.markAsRead(notificationId);
-            await localStorage.markAsSynced(notificationId);
+            await remoteRepository.markAsRead(int.parse(notificationId));
+            await localStorage.markAsSynced(int.parse(notificationId));
             
             print('✅ [Sync Worker] Sincronizado: $notificationId');
             successCount++;
           }
         } catch (e) {
           print('❌ [Sync Worker] Error sincronizando $notificationId: $e');
-          await localStorage.recordSyncError(notificationId, e.toString());
+          await localStorage.recordSyncError(int.parse(notificationId), e.toString());
           errorCount++;
         }
       }

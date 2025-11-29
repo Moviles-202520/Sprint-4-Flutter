@@ -6,18 +6,38 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../viewmodels/bookmarks_history_viewmodel.dart';
 import '../../domain/models/bookmark.dart';
 import '../../domain/models/reading_history.dart';
+import '../../data/repositories/supabase_bookmark_repository.dart';
+import '../../data/repositories/web_reading_history_repository.dart'; // ⚠️ CAMBIO: Web repository con Supabase
+import '../../data/repositories/local_news_repository.dart'; // ⚠️ NUEVO: Para navegación
+import 'news_detail_screen.dart'; // ⚠️ NUEVO: Para navegación
 
-class BookmarksHistoryScreen extends StatefulWidget {
+class BookmarksHistoryScreen extends StatelessWidget {
   const BookmarksHistoryScreen({super.key});
 
   @override
-  State<BookmarksHistoryScreen> createState() => _BookmarksHistoryScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => BookmarksHistoryViewModel(
+        bookmarkRepository: SupabaseBookmarkRepository(Supabase.instance.client),
+        historyRepository: WebReadingHistoryRepository(), // ⚠️ CAMBIO: Web repository con Supabase
+      ),
+      child: const _BookmarksHistoryContent(),
+    );
+  }
 }
 
-class _BookmarksHistoryScreenState extends State<BookmarksHistoryScreen>
+class _BookmarksHistoryContent extends StatefulWidget {
+  const _BookmarksHistoryContent();
+
+  @override
+  State<_BookmarksHistoryContent> createState() => _BookmarksHistoryContentState();
+}
+
+class _BookmarksHistoryContentState extends State<_BookmarksHistoryContent>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -143,7 +163,7 @@ class _BookmarksHistoryScreenState extends State<BookmarksHistoryScreen>
             color: Theme.of(context).colorScheme.primary,
           ),
         ),
-        title: Text('Noticia #${bookmark.newsItemId}'),
+        title: Text(bookmark.newsTitle ?? 'Noticia #${bookmark.newsItemId}'), // ⚠️ CAMBIO: Mostrar título real
         subtitle: Text(
           'Guardado ${viewModel.formatRelativeDate(bookmark.createdAt)}',
           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
@@ -349,7 +369,7 @@ class _BookmarksHistoryScreenState extends State<BookmarksHistoryScreen>
           ),
           child: const Icon(Icons.article, color: Colors.blue),
         ),
-        title: Text('Noticia #${entry.newsItemId}'),
+        title: Text(entry.newsTitle ?? 'Noticia #${entry.newsItemId}'), // ⚠️ CAMBIO: Mostrar título real
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -390,8 +410,7 @@ class _BookmarksHistoryScreenState extends State<BookmarksHistoryScreen>
           },
         ),
         onTap: () {
-          // TODO: Navigate to news detail screen
-          _navigateToNewsDetail(context, entry.newsItemId);
+          _navigateToNewsDetail(context, entry.newsItemId); // ⚠️ Ya funciona
         },
       ),
     );
@@ -542,11 +561,14 @@ class _BookmarksHistoryScreenState extends State<BookmarksHistoryScreen>
   // ============================================
 
   void _navigateToNewsDetail(BuildContext context, int newsItemId) {
-    // TODO: Implement navigation to news detail screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Navegar a noticia #$newsItemId'),
-        duration: const Duration(seconds: 1),
+    // ⚠️ IMPLEMENTACIÓN REAL: Navegar a NewsDetailScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NewsDetailScreen(
+          news_item_id: newsItemId.toString(),
+          repository: LocalNewsRepository(),
+        ),
       ),
     );
   }

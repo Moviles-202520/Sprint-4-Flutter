@@ -7,17 +7,42 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../viewmodels/preferences_viewmodel.dart';
+import '../viewmodels/auth_view_model.dart';
+import '../viewmodels/theme_viewmodel.dart';
 import '../../data/repositories/categories_repository.dart';
+import '../../data/repositories/supabase_user_preferences_repository.dart';
 
-class PreferencesScreen extends StatefulWidget {
+class PreferencesScreen extends StatelessWidget {
   const PreferencesScreen({super.key});
 
   @override
-  State<PreferencesScreen> createState() => _PreferencesScreenState();
+  Widget build(BuildContext context) {
+    // Get userProfileId from AuthViewModel
+    final userProfileId = context.read<AuthViewModel>().userProfileId ?? 1;
+    // Get ThemeViewModel from context
+    final themeViewModel = context.read<ThemeViewModel>();
+    
+    return ChangeNotifierProvider(
+      create: (_) => PreferencesViewModel(
+        repository: SupabaseUserPreferencesRepository(Supabase.instance.client),
+        userProfileId: userProfileId,
+        themeViewModel: themeViewModel,
+      ),
+      child: const _PreferencesContent(),
+    );
+  }
 }
 
-class _PreferencesScreenState extends State<PreferencesScreen> {
+class _PreferencesContent extends StatefulWidget {
+  const _PreferencesContent();
+
+  @override
+  State<_PreferencesContent> createState() => _PreferencesContentState();
+}
+
+class _PreferencesContentState extends State<_PreferencesContent> {
   @override
   void initState() {
     super.initState();
@@ -211,7 +236,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   Widget _buildFavoriteCategoriesSection(
       BuildContext context, PreferencesViewModel viewModel) {
-    final categories = context.read<CategoriesRepository>().getAllCategories();
+    final categories = CategoriesRepository.categories;
     
     return Column(
       children: categories.map((category) {

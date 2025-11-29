@@ -9,4 +9,18 @@ abstract class NewsRepository {
   Future<int> getRatingsCount(String news_item_id);
   Future<void> submitRating(RatingItem rating_item);
   Future<void> submitComment(Comment comment);
+  
+  /// Create a new news article
+  Future<NewsItem> createNewsArticle({
+    required String title,
+    required String shortDescription,
+    required String longDescription,
+    required String categoryId,
+    required String authorId,
+    required String authorType,
+    required String authorInstitution,
+    String? imageUrl,
+    String? originalSourceUrl,
+    bool isDraft = false,
+  });
 }

@@ -7,6 +7,7 @@ class Bookmark {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
+  final String? newsTitle; // ⚠️ NUEVO: Título de la noticia (opcional, viene del JOIN)
 
   Bookmark({
     required this.bookmarkId,
@@ -15,6 +16,7 @@ class Bookmark {
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
+    this.newsTitle, // ⚠️ NUEVO
   });
 
   /// ✅ FACTORY: Desde JSON (Supabase response)
@@ -26,6 +28,7 @@ class Bookmark {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       isDeleted: json['is_deleted'] as bool? ?? false,
+      newsTitle: json['news_title'] as String?, // ⚠️ NUEVO: Desde JOIN
     );
   }
 
@@ -49,6 +52,7 @@ class Bookmark {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
+    String? newsTitle, // ⚠️ NUEVO
   }) {
     return Bookmark(
       bookmarkId: bookmarkId ?? this.bookmarkId,
@@ -57,6 +61,7 @@ class Bookmark {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      newsTitle: newsTitle ?? this.newsTitle, // ⚠️ NUEVO
     );
   }
 

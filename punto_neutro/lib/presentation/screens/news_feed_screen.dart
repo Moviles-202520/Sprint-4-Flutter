@@ -15,6 +15,12 @@ import '../../data/services/weather_service.dart';
 import '../../data/repositories/weather_repository.dart';
 import '../../core/location_service.dart';
 import 'analytics_dashboard_screen.dart';
+// Milestone G screens
+import 'preferences_screen.dart';
+import 'notifications_screen.dart';
+import 'bookmarks_history_screen.dart';
+import 'create_news_screen.dart';
+import 'search_news_screen.dart';
 
 class NewsFeedScreen extends StatefulWidget {
   const NewsFeedScreen({super.key});
@@ -56,9 +62,6 @@ class _NewsFeedScreenState extends State<NewsFeedScreen> {
     if (!pos.hasPixels || !pos.hasContentDimensions) return;
 
     if (pos.pixels > (pos.maxScrollExtent - 800)) {
-      // Índice aproximado del primer ítem visible (ajusta 220 si tus cards son más grandes/pequeñas)
-      final firstVisibleApprox = (pos.pixels / 220).floor();
-
       // Llama al VM sin alterar tu flujo actual
       final vm = context.read<NewsFeedViewModel>();
       vm.prefetchTail(
@@ -115,6 +118,7 @@ class _NewsFeedScreenState extends State<NewsFeedScreen> {
             },
             child: _buildBody(),
           ),
+          bottomNavigationBar: _buildBottomNavBar(context),
         );
       }),
     );
@@ -234,29 +238,160 @@ class _NewsFeedScreenState extends State<NewsFeedScreen> {
         }
 
         return PageView.builder(
-          itemCount: viewModel.newsItems.length,
+          itemCount: viewModel.newsItems.length + (viewModel.hasMoreData ? 1 : 0), // +1 para loading indicator
           scrollDirection: Axis.vertical,
           onPageChanged: (index) {
             viewModel.setCurrentIndex(index);
-            // track article viewed
-            final news = viewModel.newsItems[index];
-            // When scrolling the feed, only increment the article counter.
-            // Do NOT record the session-category relation here — that should
-            // only be recorded when the user clicks into the detail screen.
-            AnalyticsService().incrementArticlesViewed(news.news_item_id);
             
-            // Prefetch cuando estamos cerca del final (últimas 3 noticias)
-            final threshold = 3;
-            if (index >= viewModel.newsItems.length - threshold) {
-              viewModel.prefetchTail(batch: 16);
+            // Si llegamos al último item real, cargar más
+            if (index >= viewModel.newsItems.length - 1 && viewModel.hasMoreData) {
+              print('🔄 Llegaste al final, cargando más noticias...');
+              viewModel.loadMoreNews();
+            }
+            
+            // Track article viewed (solo para items reales, no el loading)
+            if (index < viewModel.newsItems.length) {
+              final news = viewModel.newsItems[index];
+              AnalyticsService().incrementArticlesViewed(news.news_item_id);
+              
+              // Prefetch cuando estamos cerca del final (últimas 3 noticias)
+              final threshold = 3;
+              if (index >= viewModel.newsItems.length - threshold) {
+                viewModel.prefetchTail(batch: 16);
+              }
             }
           },
           itemBuilder: (context, index) {
+            // Mostrar loading indicator al final
+            if (index >= viewModel.newsItems.length) {
+              return Container(
+                color: Colors.black,
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        'Cargando más noticias...',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            
             final news = viewModel.newsItems[index];
             return _NewsItemCard(news: news, index: index);
           },
         );
       },
+    );
+  }
+
+  // TikTok-style bottom navigation bar
+  Widget _buildBottomNavBar(BuildContext context) {
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // 1. Settings/Preferences (gear icon)
+          _buildNavButton(
+            icon: Icons.settings,
+            label: 'Ajustes',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const PreferencesScreen()),
+              );
+            },
+          ),
+          
+          // 2. Notifications (bell icon)
+          _buildNavButton(
+            icon: Icons.notifications,
+            label: 'Notificaciones',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+              );
+            },
+          ),
+          
+          // 3. History (history icon)
+          _buildNavButton(
+            icon: Icons.history,
+            label: 'Historial',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const BookmarksHistoryScreen()),
+              );
+            },
+          ),
+          
+          // 4. Create News (+ icon)
+          _buildNavButton(
+            icon: Icons.add_circle_outline,
+            label: 'Crear',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const CreateNewsScreen()),
+              );
+            },
+          ),
+          
+          // 5. Search (magnifying glass icon)
+          _buildNavButton(
+            icon: Icons.search,
+            label: 'Buscar',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SearchNewsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper to build individual nav buttons
+  Widget _buildNavButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

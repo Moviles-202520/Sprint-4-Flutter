@@ -411,7 +411,7 @@ class _NewsDetailContent extends StatelessWidget {
                       if (value >= 0.98) return const SizedBox.shrink();
                       return Positioned.fill(
                         child: IgnorePointer(
-                          ignoring: false,
+                          ignoring: true, // ⚠️ FIX: NO bloquear clicks/scroll
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             color: Colors.black.withOpacity(opacity),

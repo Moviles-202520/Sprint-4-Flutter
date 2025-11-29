@@ -113,9 +113,19 @@ class CreateNewsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // TODO: Implement draft saving in repository
-      // For now, just simulate success
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Save as draft to repository
+      await _repository.createNewsArticle(
+        title: _data.title.isEmpty ? 'Borrador sin título' : _data.title,
+        shortDescription: _data.shortDescription.isEmpty ? 'Borrador' : _data.shortDescription,
+        longDescription: _data.longDescription.isEmpty ? 'Borrador en progreso' : _data.longDescription,
+        categoryId: _data.categoryId.isEmpty ? '1' : _data.categoryId,
+        authorId: _userProfileId,
+        authorType: _data.authorType,
+        authorInstitution: _data.authorInstitution,
+        imageUrl: _data.imageUrl,
+        originalSourceUrl: _data.originalSourceUrl,
+        isDraft: true,
+      );
       
       _successMessage = 'Borrador guardado exitosamente';
       _isSaving = false;
@@ -152,9 +162,19 @@ class CreateNewsViewModel extends ChangeNotifier {
         publicationDate: DateTime.now(),
       );
 
-      // TODO: Implement publishing in repository
-      // For now, just simulate success
-      await Future.delayed(const Duration(milliseconds: 800));
+      // Publish to repository
+      await _repository.createNewsArticle(
+        title: _data.title,
+        shortDescription: _data.shortDescription,
+        longDescription: _data.longDescription,
+        categoryId: _data.categoryId,
+        authorId: _userProfileId,
+        authorType: _data.authorType,
+        authorInstitution: _data.authorInstitution,
+        imageUrl: _data.imageUrl,
+        originalSourceUrl: _data.originalSourceUrl,
+        isDraft: false,
+      );
       
       _successMessage = '¡Noticia publicada exitosamente!';
       _isPublishing = false;

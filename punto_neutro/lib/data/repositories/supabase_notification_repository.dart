@@ -35,13 +35,12 @@ class SupabaseNotificationRepository implements NotificationRepository {
   }
 
   @override
-  Future<AppNotification> markAsRead(String notificationId) async {
+  Future<AppNotification> markAsRead(int notificationId) async {
     try {
       final response = await _supabase
           .from('notifications')
           .update({
             'is_read': true,
-            'read_at': DateTime.now().toIso8601String(),
           })
           .eq('notification_id', notificationId)
           .select()
@@ -61,7 +60,6 @@ class SupabaseNotificationRepository implements NotificationRepository {
           .from('notifications')
           .update({
             'is_read': true,
-            'read_at': DateTime.now().toIso8601String(),
           })
           .eq('is_read', false)
           .select();

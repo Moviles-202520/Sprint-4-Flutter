@@ -74,15 +74,15 @@ class NotificationLocalStorage {
       await db.insert(
         'local_notifications',
         {
-          'notification_id': notification.notificationId,
-          'user_profile_id': notification.userProfileId,
-          'notification_type': notification.notificationType,
-          'title': notification.title,
-          'body': notification.body,
-          'metadata': notification.metadata != null ? jsonEncode(notification.metadata) : null,
+          'notification_id': notification.notificationId.toString(),
+          'user_profile_id': notification.userProfileId.toString(),
+          'notification_type': notification.type.toValue(),
+          'title': notification.getMessage(),
+          'body': notification.getPreview() ?? '',
+          'metadata': notification.payload != null ? jsonEncode(notification.payload) : null,
           'is_read': notification.isRead ? 1 : 0,
           'created_at': notification.createdAt.toIso8601String(),
-          'read_at': notification.readAt?.toIso8601String(),
+          'read_at': null, // El nuevo modelo no tiene readAt
           'sync_status': syncStatus,
           'pending_action': pendingAction,
           'last_sync_attempt': null,
@@ -120,27 +120,26 @@ class NotificationLocalStorage {
       ''', [limit, offset]);
 
       return results.map((row) {
-        // Deserializar metadata de JSON string a Map
-        Map<String, dynamic>? metadata;
+        // Deserializar payload de JSON string a Map
+        Map<String, dynamic>? payload;
         if (row['metadata'] != null) {
           try {
-            metadata = jsonDecode(row['metadata'] as String) as Map<String, dynamic>;
+            payload = jsonDecode(row['metadata'] as String) as Map<String, dynamic>;
           } catch (e) {
-            print('⚠️ Error deserializando metadata: $e');
-            metadata = null;
+            print('⚠️ Error deserializando payload: $e');
+            payload = null;
           }
         }
 
         return AppNotification(
-          notificationId: row['notification_id'] as String,
-          userProfileId: row['user_profile_id'] as String,
-          notificationType: row['notification_type'] as String,
-          title: row['title'] as String,
-          body: row['body'] as String,
-          metadata: metadata,
+          notificationId: int.parse(row['notification_id'] as String),
+          userProfileId: int.parse(row['user_profile_id'] as String),
+          type: NotificationType.fromString(row['notification_type'] as String),
+          payload: payload,
           isRead: (row['is_read'] as int) == 1,
           createdAt: DateTime.parse(row['created_at'] as String),
-          readAt: row['read_at'] != null ? DateTime.parse(row['read_at'] as String) : null,
+          actorUserProfileId: null,
+          newsItemId: null,
         );
       }).toList();
     } catch (e) {
@@ -151,7 +150,7 @@ class NotificationLocalStorage {
 
   /// ✅ MARCAR COMO LEÍDA (OFFLINE-FIRST)
   /// Marca localmente y encola para sincronización
-  Future<void> markAsReadLocal(String notificationId) async {
+  Future<void> markAsReadLocal(int notificationId) async {
     final db = await database;
     
     try {
@@ -166,7 +165,7 @@ class NotificationLocalStorage {
           'pending_action': 'mark_as_read',
         },
         where: 'notification_id = ?',
-        whereArgs: [notificationId],
+        whereArgs: [notificationId.toString()],
       );
       
       print('📝 Notificación marcada como leída localmente (pending sync): $notificationId');
@@ -238,7 +237,7 @@ class NotificationLocalStorage {
 
   /// ✅ MARCAR COMO SINCRONIZADA
   /// Llamado por sync worker después de sincronizar exitosamente
-  Future<void> markAsSynced(String notificationId) async {
+  Future<void> markAsSynced(int notificationId) async {
     final db = await database;
     
     try {
@@ -250,7 +249,7 @@ class NotificationLocalStorage {
           'sync_error': null,
         },
         where: 'notification_id = ?',
-        whereArgs: [notificationId],
+        whereArgs: [notificationId.toString()],
       );
       
       print('✅ Notificación sincronizada: $notificationId');
@@ -261,7 +260,7 @@ class NotificationLocalStorage {
 
   /// ✅ REGISTRAR ERROR DE SINCRONIZACIÓN
   /// Usado cuando el sync worker falla (para exponential backoff)
-  Future<void> recordSyncError(String notificationId, String error) async {
+  Future<void> recordSyncError(int notificationId, String error) async {
     final db = await database;
     
     try {
@@ -273,7 +272,7 @@ class NotificationLocalStorage {
           'last_sync_attempt': DateTime.now().toIso8601String(),
         },
         where: 'notification_id = ?',
-        whereArgs: [notificationId],
+        whereArgs: [notificationId.toString()],
       );
       
       print('⚠️ Error de sincronización registrado para $notificationId: $error');
