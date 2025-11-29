@@ -30,6 +30,31 @@ class LocalNewsRepository implements NewsRepository {
   @override
   Future<void> submitRating(RatingItem rating_item) => _impl.submitRating(rating_item);
 
+  @override
+  Future<NewsItem> createNewsArticle({
+    required String title,
+    required String shortDescription,
+    required String longDescription,
+    required String categoryId,
+    required String authorId,
+    required String authorType,
+    required String authorInstitution,
+    String? imageUrl,
+    String? originalSourceUrl,
+    bool isDraft = false,
+  }) => _impl.createNewsArticle(
+    title: title,
+    shortDescription: shortDescription,
+    longDescription: longDescription,
+    categoryId: categoryId,
+    authorId: authorId,
+    authorType: authorType,
+    authorInstitution: authorInstitution,
+    imageUrl: imageUrl,
+    originalSourceUrl: originalSourceUrl,
+    isDraft: isDraft,
+  );
+
   /// For callers that want to manually trigger a sync (e.g., pull-to-refresh)
   Future<void> syncPending() => _impl.syncPendingData();
 

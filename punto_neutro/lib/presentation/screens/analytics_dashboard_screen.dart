@@ -634,10 +634,513 @@ class AnalyticsDashboardScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                // BQ H.1: Dark Mode Adoption
+                _ChartCard(
+                  title: 'BQ H.1: Dark Mode Adoption',
+                  description: 'Porcentaje de usuarios que usan modo oscuro',
+                  child: () {
+                    final darkModeData = vm.bqH1DarkModeData;
+                    final percentage = (darkModeData['dark_mode_percentage'] ?? 0.0) as num;
+                    final pct = percentage.toDouble();
+
+                    return Column(
+                      children: [
+                        SizedBox(
+                          height: 200,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              SizedBox(
+                                width: 180,
+                                height: 180,
+                                child: CircularProgressIndicator(
+                                  value: pct / 100,
+                                  strokeWidth: 20,
+                                  backgroundColor: Colors.grey[800],
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    pct > 50 ? Colors.purple : Colors.blue,
+                                  ),
+                                ),
+                              ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${pct.toStringAsFixed(1)}%',
+                                    style: const TextStyle(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'Dark Mode',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[800],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                pct > 50 ? Icons.nights_stay : Icons.wb_sunny,
+                                color: pct > 50 ? Colors.purple : Colors.orange,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  pct > 50
+                                      ? 'La mayoría de usuarios prefiere el modo oscuro'
+                                      : 'La mayoría de usuarios usa el modo claro',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }(),
+                ),
+
+                // BQ H.2: News Creation Trend
+                _ChartCard(
+                  title: 'BQ H.2: News Creation Trend',
+                  description: 'Noticias creadas por usuarios cada semana',
+                  child: () {
+                    final weeklyData = vm.bqH2NewsCreationData;
+                    
+                    if (weeklyData.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'No hay datos de noticias creadas',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      );
+                    }
+
+                    // Sort by week
+                    final sortedData = List<Map<String, dynamic>>.from(weeklyData)
+                      ..sort((a, b) => (a['week'] as String).compareTo(b['week'] as String));
+
+                    final spots = sortedData.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final count = (entry.value['count'] as num).toDouble();
+                      return FlSpot(idx.toDouble(), count);
+                    }).toList();
+
+                    final maxCount = sortedData.map((d) => (d['count'] as num).toDouble()).reduce((a, b) => a > b ? a : b);
+
+                    return Column(
+                      children: [
+                        SizedBox(
+                          height: 200,
+                          child: LineChart(
+                            LineChartData(
+                              gridData: const FlGridData(show: true, drawVerticalLine: false),
+                              minY: 0,
+                              maxY: maxCount + 2,
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: spots,
+                                  isCurved: true,
+                                  color: Colors.cyan,
+                                  barWidth: 3,
+                                  dotData: const FlDotData(show: true),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: Colors.cyan.withOpacity(0.2),
+                                  ),
+                                ),
+                              ],
+                              titlesData: FlTitlesData(
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 40,
+                                    getTitlesWidget: (value, meta) {
+                                      return Text(
+                                        value.toInt().toString(),
+                                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 30,
+                                    getTitlesWidget: (value, meta) {
+                                      final idx = value.toInt();
+                                      if (idx >= 0 && idx < sortedData.length) {
+                                        final week = sortedData[idx]['week'] as String;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(top: 8),
+                                          child: Text(
+                                            week.substring(week.length - 2), // Show last 2 chars (week number)
+                                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox();
+                                    },
+                                  ),
+                                ),
+                              ),
+                              borderData: FlBorderData(show: false),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '📈 Total de semanas: ${sortedData.length}',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    );
+                  }(),
+                ),
+
+                // BQ H.3: Personalization Effectiveness
+                _ChartCard(
+                  title: 'BQ H.3: Personalization Effectiveness',
+                  description: '% de impresiones en categorías favoritas del usuario',
+                  child: () {
+                    final personalizationData = vm.bqH3PersonalizationData;
+                    final ratio = (personalizationData['personalization_ratio'] ?? 0.0) as num;
+                    final pct = ratio.toDouble();
+
+                    return Column(
+                      children: [
+                        SizedBox(
+                          height: 200,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              SizedBox(
+                                width: 180,
+                                height: 180,
+                                child: CircularProgressIndicator(
+                                  value: pct / 100,
+                                  strokeWidth: 20,
+                                  backgroundColor: Colors.grey[800],
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    pct > 60
+                                        ? Colors.green
+                                        : pct > 30
+                                            ? Colors.orange
+                                            : Colors.red,
+                                  ),
+                                ),
+                              ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${pct.toStringAsFixed(1)}%',
+                                    style: const TextStyle(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'Personalizado',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[800],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    pct > 60
+                                        ? Icons.check_circle
+                                        : pct > 30
+                                            ? Icons.info
+                                            : Icons.warning,
+                                    color: pct > 60
+                                        ? Colors.green
+                                        : pct > 30
+                                            ? Colors.orange
+                                            : Colors.red,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      pct > 60
+                                          ? 'Excelente personalización'
+                                          : pct > 30
+                                              ? 'Personalización moderada'
+                                              : 'Baja personalización',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Total impresiones: ${personalizationData['total_impressions'] ?? 0}',
+                                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                              ),
+                              Text(
+                                'En favoritos: ${personalizationData['favorite_impressions'] ?? 0}',
+                                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }(),
+                ),
+
+                // BQ H.4: User Actions Awareness
+                _ChartCard(
+                  title: 'BQ H.4: User Actions Awareness',
+                  description: 'Distribución de acciones del usuario',
+                  child: () {
+                    final actionsData = vm.bqH4UserActionsData;
+                    final ratingsCount = (actionsData['ratings_count'] ?? 0) as int;
+                    final commentsCount = (actionsData['comments_count'] ?? 0) as int;
+                    final readsCount = (actionsData['reads_count'] ?? 0) as int;
+
+                    final total = ratingsCount + commentsCount + readsCount;
+
+                    if (total == 0) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'No hay acciones registradas',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      children: [
+                        SizedBox(
+                          height: 200,
+                          child: PieChart(
+                            PieChartData(
+                              sections: [
+                                PieChartSectionData(
+                                  value: ratingsCount.toDouble(),
+                                  title: '${((ratingsCount / total) * 100).toStringAsFixed(0)}%',
+                                  color: Colors.blue,
+                                  radius: 80,
+                                  titleStyle: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                PieChartSectionData(
+                                  value: commentsCount.toDouble(),
+                                  title: '${((commentsCount / total) * 100).toStringAsFixed(0)}%',
+                                  color: Colors.orange,
+                                  radius: 80,
+                                  titleStyle: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                PieChartSectionData(
+                                  value: readsCount.toDouble(),
+                                  title: '${((readsCount / total) * 100).toStringAsFixed(0)}%',
+                                  color: Colors.green,
+                                  radius: 80,
+                                  titleStyle: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                              sectionsSpace: 2,
+                              centerSpaceRadius: 40,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Column(
+                          children: [
+                            _buildLegendItem(Colors.blue, 'Calificaciones', ratingsCount),
+                            _buildLegendItem(Colors.orange, 'Comentarios', commentsCount),
+                            _buildLegendItem(Colors.green, 'Lecturas', readsCount),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Total de acciones: $total',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    );
+                  }(),
+                ),
+
+                // BQ H.5: Source Satisfaction by Category
+                _ChartCard(
+                  title: 'BQ H.5: Lowest Rated Sources',
+                  description: 'Top 10 fuentes con menor confiabilidad por categoría',
+                  child: () {
+                    final sourcesData = vm.bqH5SourceSatisfactionData;
+
+                    if (sourcesData.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'No hay datos de fuentes calificadas',
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      children: [
+                        ...sourcesData.take(10).map((source) {
+                          final sourceDomain = source['source_domain'] ?? 'Unknown';
+                          final categoryName = source['category_name'] ?? 'N/A';
+                          final avgReliability = ((source['avg_reliability'] ?? 0.0) as num).toDouble();
+                          final ratingCount = source['rating_count'] ?? 0;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[800],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        sourceDomain,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        categoryName,
+                                        style: const TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 2,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        avgReliability.toStringAsFixed(2),
+                                        style: TextStyle(
+                                          color: avgReliability < 0.4
+                                              ? Colors.red
+                                              : avgReliability < 0.6
+                                                  ? Colors.orange
+                                                  : Colors.green,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      Text(
+                                        '$ratingCount ratings',
+                                        style: const TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    );
+                  }(),
+                ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$label: $count',
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ],
       ),
     );
   }

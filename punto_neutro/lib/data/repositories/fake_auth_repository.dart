@@ -88,4 +88,9 @@ class FakeAuthRepository implements AuthRepository {
   Future<void> logout() async {
     await BiometricVault.instance.clear();
   }
+
+  @override
+  Future<int?> currentUserProfileId() async {
+    return 6; // Mock user profile ID for testing
+  }
 }

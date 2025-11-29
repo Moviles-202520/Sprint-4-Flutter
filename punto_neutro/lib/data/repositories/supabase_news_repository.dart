@@ -112,17 +112,68 @@ class SupabaseNewsRepository implements NewsRepository {
 
   Future<void> pushBookmarks(List<int> newsIds, int userProfileId) async {
     if (newsIds.isEmpty) return;
-    final rows = newsIds.map((id) => {'user_profile_id': userProfileId, 'news_item_id': id}).toList();
+    final now = DateTime.now().toIso8601String();
+    final rows = newsIds.map((id) => {
+      'user_profile_id': userProfileId,
+      'news_item_id': id,
+      'updated_at': now,
+      'is_deleted': false,
+    }).toList();
     await _supabase.from('bookmarks').upsert(rows, onConflict: 'user_profile_id,news_item_id');
+    print('✅ Pushed ${newsIds.length} bookmarks to Supabase for user $userProfileId');
   }
 
   Future<void> deleteBookmark(int newsId, int userProfileId) async {
-    await _supabase.from('bookmarks').delete().match({'user_profile_id': userProfileId, 'news_item_id': newsId});
+    final now = DateTime.now().toIso8601String();
+    // Soft delete: marca is_deleted=true en lugar de DELETE
+    await _supabase.from('bookmarks').update({
+      'is_deleted': true,
+      'updated_at': now,
+    }).match({'user_profile_id': userProfileId, 'news_item_id': newsId});
+    print('✅ Soft deleted bookmark $newsId for user $userProfileId');
   }
 
   Future<Set<int>> fetchRemoteBookmarks(int userProfileId) async {
-    final data = await _supabase.from('bookmarks').select('news_item_id').eq('user_profile_id', userProfileId);
+    final data = await _supabase
+        .from('bookmarks')
+        .select('news_item_id')
+        .eq('user_profile_id', userProfileId)
+        .eq('is_deleted', false); // Solo bookmarks activos
     return {for (final r in data) (r['news_item_id'] as num).toInt()};
+  }
+
+  @override
+  Future<NewsItem> createNewsArticle({
+    required String title,
+    required String shortDescription,
+    required String longDescription,
+    required String categoryId,
+    required String authorId,
+    required String authorType,
+    required String authorInstitution,
+    String? imageUrl,
+    String? originalSourceUrl,
+    bool isDraft = false,
+  }) async {
+    final now = DateTime.now();
+    
+    final response = await _supabase.from('news_items').insert({
+      'title': title,
+      'short_description': shortDescription,
+      'long_description': longDescription,
+      'category_id': int.tryParse(categoryId),
+      'user_profile_id': int.tryParse(authorId),
+      'author_type': authorType,
+      'author_institution': authorInstitution,
+      'image_url': imageUrl ?? '',
+      'original_source_url': originalSourceUrl,
+      'publication_date': now.toIso8601String(),
+      'added_to_app_date': now.toIso8601String(),
+    }).select().single();
+
+    print('✅ News article created in Supabase: ${response['news_item_id']}');
+    
+    return _mapToNewsItem(Map<String, dynamic>.from(response));
   }
   
   NewsItem _mapToNewsItem(Map<String, dynamic> response) {

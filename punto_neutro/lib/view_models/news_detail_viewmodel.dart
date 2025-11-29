@@ -9,6 +9,7 @@ import '../core/observers/rating_observer.dart';
 import '../core/observers/comment_tracker.dart';
 import 'package:flutter/foundation.dart';
 import '../../data/repositories/hybrid_news_repository.dart';
+import '../../data/repositories/web_reading_history_repository.dart'; // ⚠️ NUEVO: Para historial
 
 class NewsDetailViewModel extends ChangeNotifier {
 
@@ -20,25 +21,29 @@ class NewsDetailViewModel extends ChangeNotifier {
   /// Carga el estado de bookmark solo una vez
   Future<void> loadBookmarkStateOnce() async {
     if (_bookmarkLoaded) return;
-    final id = int.tryParse(news_item_id ?? news_item_id ?? ''); // ajusta si tu id tiene otro nombre
+    final id = int.tryParse(news_item_id);
     if (id == null) return;
     try {
       isBookmarked = await _hybridNewsRepository.isBookmarked(id);
       _bookmarkLoaded = true;
       notifyListeners();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ Error loading bookmark state: $e');
+    }
   }
 
   /// Alterna el estado de bookmark y sincroniza vía repositorio híbrido
   Future<void> toggleBookmark() async {
-    final id = int.tryParse(news_item_id ?? news_item_id ?? '');
+    final id = int.tryParse(news_item_id);
     if (id == null) return;
     final next = !isBookmarked;
     try {
       await _hybridNewsRepository.toggleBookmark(id, value: next);
       isBookmarked = next;
       notifyListeners();
-    } catch (_) {
+      debugPrint('✅ Bookmark toggled: newsId=$id, value=$next');
+    } catch (e) {
+      debugPrint('⚠️ Error toggling bookmark: $e');
       // Si falla, deja el estado igual
     }
   }
@@ -86,6 +91,26 @@ class NewsDetailViewModel extends ChangeNotifier {
       notifyListeners();
       
       _news_item = await _repository.getNewsDetail(news_item_id);
+      
+      // ⚠️ NUEVO: Registrar en el historial de lectura
+      try {
+        final newsId = int.tryParse(news_item_id);
+        final catId = int.tryParse(_news_item?.category_id ?? '');
+        final userId = int.tryParse(userProfileId);
+        
+        if (newsId != null) {
+          final historyRepo = WebReadingHistoryRepository();
+          await historyRepo.startReadingSession(
+            newsItemId: newsId,
+            categoryId: catId,
+            userProfileId: userId,
+          );
+          print('📚 [HISTORY] Session started for news $newsId');
+        }
+      } catch (e) {
+        print('⚠️ [HISTORY] Error recording history: $e');
+      }
+      
       // Record viewed article + category as a fallback in case the tap-path
       // did not persist the viewed_categories row. incrementArticlesViewed
       // is idempotent for the same news_item_id in a session.

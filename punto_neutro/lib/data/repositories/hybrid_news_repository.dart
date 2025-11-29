@@ -61,9 +61,9 @@ class HybridNewsRepository implements NewsRepository {
     SupabaseNewsRepository? remote,
     AuthRepository? auth,
   }) {
-    // Usa los que te pasen o crea/obtén los “default”
+    // Usa los que te pasen o crea/obtén los "default"
     // Ajusta a los constructores reales de tus clases (instance / default ctor).
-    this.sqlite = sqlite ?? SqliteNewsRepository();            // o SqliteNewsRepository.instance
+    this.sqlite = null;  // ⚠️ DESHABILITADO: SQLite no funciona en web
     this.remote = remote ?? SupabaseNewsRepository();          // o SupabaseNewsRepository.instance
     this.auth   = auth   ?? SupabaseAuthRepository();
     _connectivitySub = _connectivity.onConnectivityChanged.listen((result) async {
@@ -487,12 +487,13 @@ class HybridNewsRepository implements NewsRepository {
 }
 
 
-  late final SqliteNewsRepository sqlite;
+  late final SqliteNewsRepository? sqlite;  // ⚠️ Opcional para web
   late final SupabaseNewsRepository remote;
   late final AuthRepository auth;
 
   Future<void> toggleBookmark(int newsId, {required bool value}) async {
-    await sqlite.toggleBookmark(newsId, value: value);
+    // ⚠️ Skip SQLite en web
+    // await sqlite.toggleBookmark(newsId, value: value);
 
     // Obtiene el perfil actual del usuario
     final userProfileId = await auth.currentUserProfileId();
@@ -502,7 +503,7 @@ class HybridNewsRepository implements NewsRepository {
       try {
         if (value) {
           await remote.pushBookmarks([newsId], userProfileId);
-          await sqlite.markBookmarksSynced([newsId]);
+          // await sqlite?.markBookmarksSynced([newsId]);
           debugPrint('✅ Bookmark sincronizado remoto [$newsId]');
         } else {
           await remote.deleteBookmark(newsId, userProfileId);
@@ -517,12 +518,16 @@ class HybridNewsRepository implements NewsRepository {
 
   /// Verifica si una noticia está marcada como guardada
   Future<bool> isBookmarked(int newsId) async {
-    return sqlite.isBookmarked(newsId);
+    // ⚠️ En web, consultar directo a Supabase
+    // return sqlite?.isBookmarked(newsId) ?? false;
+    return false; // TODO: Implementar con Supabase
   }
 
   /// Obtiene todos los IDs de noticias guardadas localmente
   Future<List<int>> getBookmarkedIds() async {
-    return sqlite.getBookmarkedIds();
+    // ⚠️ En web, consultar directo a Supabase
+    // return sqlite?.getBookmarkedIds() ?? [];
+    return []; // TODO: Implementar con Supabase
   }
 
   /// Sincroniza los bookmarks pendientes cuando vuelve la conexión
@@ -536,19 +541,63 @@ class HybridNewsRepository implements NewsRepository {
       return;
     }
 
-    final pending = await sqlite.takePendingBookmarks(100);
+    // ⚠️ DESHABILITADO: SQLite no funciona en web
+    // final pending = await sqlite.takePendingBookmarks(100);
+    final pending = <int>[]; // Empty list para web
     if (pending.isEmpty) {
-      debugPrint('🟢 No hay bookmarks pendientes');
+      debugPrint('🟢 No hay bookmarks pendientes (SQLite deshabilitado en web)');
       return;
     }
 
     try {
       await remote.pushBookmarks(pending, userProfileId);
-      await sqlite.markBookmarksSynced(pending);
+      // await sqlite.markBookmarksSynced(pending);
       debugPrint('✅ Bookmarks sincronizados con Supabase (${pending.length})');
     } catch (e) {
       debugPrint('⚠️ Fallo al sincronizar bookmarks pendientes: $e');
     }
+  }
+
+  /// Create a new news article
+  @override
+  Future<NewsItem> createNewsArticle({
+    required String title,
+    required String shortDescription,
+    required String longDescription,
+    required String categoryId,
+    required String authorId,
+    required String authorType,
+    required String authorInstitution,
+    String? imageUrl,
+    String? originalSourceUrl,
+    bool isDraft = false,
+  }) async {
+    debugPrint('📝 Creating news article: $title');
+    
+    final now = DateTime.now();
+    
+    // Insert into Supabase
+    final response = await _supabase.from('news_items').insert({
+      'title': title,
+      'short_description': shortDescription,
+      'long_description': longDescription,
+      'category_id': categoryId,
+      'user_profile_id': int.tryParse(authorId),
+      'author_type': authorType,
+      'author_institution': authorInstitution,
+      'image_url': imageUrl ?? '',
+      'original_source_url': originalSourceUrl,
+      'publication_date': now.toIso8601String(),
+      'added_to_app_date': now.toIso8601String(),
+    }).select().single();
+
+    debugPrint('✅ News article created with ID: ${response['news_item_id']}');
+    
+    // Clear news cache to force refresh
+    await _newsCache.delete('all_news');
+    debugPrint('🔄 News cache cleared for refresh');
+    
+    return _mapToNewsItem(Map<String, dynamic>.from(response));
   }
 
 }

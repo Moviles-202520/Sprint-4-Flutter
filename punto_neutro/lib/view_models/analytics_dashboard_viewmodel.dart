@@ -53,6 +53,12 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
         _loadBQ3ConversionRateAnalysis(),
         _loadBQ4CategoryDistribution(),
         _loadBQ5EngagementAccuracyCorrelation(),
+        // ⚠️ NUEVAS BQ (Milestone H)
+        loadBQH1DarkModeUsage(),
+        loadBQH2NewsCreation(),
+        loadBQH3Personalization(),
+        loadBQH4UserActions(),
+        loadBQH5SourceSatisfaction(),
       ]);
 
       // Iniciar streams en tiempo real
@@ -435,6 +441,246 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
 
     final denominator = sqrt(sumSqEngagement * sumSqAccuracy);
     return denominator == 0 ? 0.0 : numerator / denominator;
+  }
+
+  // ⚠️ NUEVAS BUSINESS QUESTIONS (Milestone H)
+  Map<String, dynamic> _bqH1DarkModeData = {}; // H.1: Dark mode usage
+  List<Map<String, dynamic>> _bqH2NewsCreationData = []; // H.2: User contributions
+  Map<String, dynamic> _bqH3PersonalizationData = {}; // H.3: Personalization ratio
+  Map<String, dynamic> _bqH4UserActionsData = {}; // H.4: User awareness of actions
+  List<Map<String, dynamic>> _bqH5SourceSatisfactionData = []; // H.5: Source satisfaction
+
+  // Getters para las nuevas BQ
+  Map<String, dynamic> get bqH1DarkModeData => _bqH1DarkModeData;
+  List<Map<String, dynamic>> get bqH2NewsCreationData => _bqH2NewsCreationData;
+  Map<String, dynamic> get bqH3PersonalizationData => _bqH3PersonalizationData;
+  Map<String, dynamic> get bqH4UserActionsData => _bqH4UserActionsData;
+  List<Map<String, dynamic>> get bqH5SourceSatisfactionData => _bqH5SourceSatisfactionData;
+
+  /// ✅ H.1: Dark mode usage percentage
+  Future<void> loadBQH1DarkModeUsage() async {
+    try {
+      final result = await _supabase.rpc('get_dark_mode_percentage');
+      _bqH1DarkModeData = {
+        'dark_mode_percentage': result ?? 0.0,
+        'total_users': 0, // Placeholder, adjust based on RPC return
+      };
+      notifyListeners();
+    } catch (e) {
+      print('❌ Error loading BQ H.1: $e');
+      _bqH1DarkModeData = {'error': e.toString()};
+    }
+  }
+
+  /// ✅ H.2: News created by users per week
+  Future<void> loadBQH2NewsCreation() async {
+    try {
+      final result = await _supabase
+          .from('news_items')
+          .select('user_profile_id, publication_date')
+          .order('publication_date', ascending: false)
+          .limit(1000); // Last 1000 articles
+
+      // Group by week
+      final weeklyData = <String, int>{};
+      for (var item in result) {
+        final date = DateTime.parse(item['publication_date'] as String);
+        final weekKey = '${date.year}-W${_getWeekNumber(date)}';
+        weeklyData[weekKey] = (weeklyData[weekKey] ?? 0) + 1;
+      }
+
+      _bqH2NewsCreationData = weeklyData.entries
+          .map((e) => {'week': e.key, 'count': e.value})
+          .toList()
+        ..sort((a, b) => (a['week'] as String).compareTo(b['week'] as String));
+
+      notifyListeners();
+    } catch (e) {
+      print('❌ Error loading BQ H.2: $e');
+    }
+  }
+
+  int _getWeekNumber(DateTime date) {
+    final dayOfYear = int.parse(date.difference(DateTime(date.year, 1, 1)).inDays.toString());
+    return ((dayOfYear - date.weekday + 10) / 7).floor();
+  }
+
+  /// ✅ H.3: Personalization ratio (favorite categories shown)
+  Future<void> loadBQH3Personalization() async {
+    try {
+      // Get current user's profile
+      final authUserId = _supabase.auth.currentUser?.id;
+      if (authUserId == null) return;
+
+      final userProfile = await _supabase
+          .from('user_profiles')
+          .select('user_profile_id')
+          .eq('user_auth_id', authUserId)
+          .maybeSingle();
+
+      if (userProfile == null) return;
+      final userProfileId = userProfile['user_profile_id'] as int;
+
+      // Get user's favorite categories
+      final favorites = await _supabase
+          .from('user_favorite_categories')
+          .select('category_id')
+          .eq('user_profile_id', userProfileId);
+
+      final favCategoryIds = favorites.map((f) => f['category_id'] as int).toList();
+
+      // Get user's session impressions
+      final sessions = await _supabase
+          .from('user_sessions')
+          .select('user_session_id')
+          .eq('user_profile_id', userProfileId)
+          .limit(10); // Last 10 sessions
+
+      int totalImpressions = 0;
+      int favoriteImpressions = 0;
+
+      for (var session in sessions) {
+        final viewed = await _supabase
+            .from('viewed_categories')
+            .select('category_id')
+            .eq('user_session_id', session['user_session_id']);
+
+        totalImpressions += viewed.length;
+        favoriteImpressions += viewed.where((v) => favCategoryIds.contains(v['category_id'])).length;
+      }
+
+      final personalizationRatio = totalImpressions > 0
+          ? (favoriteImpressions / totalImpressions) * 100
+          : 0.0;
+
+      _bqH3PersonalizationData = {
+        'personalization_ratio': personalizationRatio,
+        'total_impressions': totalImpressions,
+        'favorite_impressions': favoriteImpressions,
+      };
+
+      notifyListeners();
+    } catch (e) {
+      print('❌ Error loading BQ H.3: $e');
+    }
+  }
+
+  /// ✅ H.4: User actions awareness (ratings, comments, reads)
+  Future<void> loadBQH4UserActions() async {
+    try {
+      final authUserId = _supabase.auth.currentUser?.id;
+      if (authUserId == null) return;
+
+      final userProfile = await _supabase
+          .from('user_profiles')
+          .select('user_profile_id')
+          .eq('user_auth_id', authUserId)
+          .maybeSingle();
+
+      if (userProfile == null) return;
+      final userProfileId = userProfile['user_profile_id'] as int;
+
+      // Count ratings
+      final ratings = await _supabase
+          .from('rating_items')
+          .select('rating_item_id')
+          .eq('user_profile_id', userProfileId);
+
+      // Count comments
+      final comments = await _supabase
+          .from('comments')
+          .select('comment_id')
+          .eq('user_profile_id', userProfileId);
+
+      // Count reads (from news_read_history)
+      final reads = await _supabase
+          .from('news_read_history')
+          .select('read_id')
+          .eq('user_profile_id', userProfileId);
+
+      _bqH4UserActionsData = {
+        'ratings_count': ratings.length,
+        'comments_count': comments.length,
+        'reads_count': reads.length,
+        'total_actions': ratings.length + comments.length + reads.length,
+      };
+
+      notifyListeners();
+    } catch (e) {
+      print('❌ Error loading BQ H.4: $e');
+    }
+  }
+
+  /// ✅ H.5: Source satisfaction by category (lowest rated)
+  Future<void> loadBQH5SourceSatisfaction() async {
+    try {
+      final result = await _supabase
+          .from('news_items')
+          .select('source_domain, category_id, news_item_id')
+          .not('source_domain', 'is', null)
+          .limit(500);
+
+      // Get ratings for these articles
+      final Map<String, Map<String, dynamic>> sourceStats = {};
+
+      for (var item in result) {
+        final source = item['source_domain'] as String?;
+        final category = item['category_id'] as int?;
+        final newsId = item['news_item_id'] as int;
+
+        if (source == null || category == null) continue;
+
+        final key = '$source-$category';
+
+        // Get ratings for this article
+        final ratings = await _supabase
+            .from('rating_items')
+            .select('assigned_reliability_score')
+            .eq('news_item_id', newsId);
+
+        if (ratings.isEmpty) continue;
+
+        final avgScore = ratings
+                .map((r) => (r['assigned_reliability_score'] as num).toDouble())
+                .reduce((a, b) => a + b) /
+            ratings.length;
+
+        if (!sourceStats.containsKey(key)) {
+          sourceStats[key] = {
+            'source': source,
+            'category': category,
+            'total_score': 0.0,
+            'count': 0,
+          };
+        }
+
+        sourceStats[key]!['total_score'] = (sourceStats[key]!['total_score'] as double) + avgScore;
+        sourceStats[key]!['count'] = (sourceStats[key]!['count'] as int) + 1;
+      }
+
+      // Calculate averages and sort
+      _bqH5SourceSatisfactionData = sourceStats.entries
+          .map((e) {
+            final avg = (e.value['total_score'] as double) / (e.value['count'] as int);
+            return {
+              'source': e.value['source'],
+              'category': e.value['category'],
+              'avg_score': avg,
+              'count': e.value['count'],
+            };
+          })
+          .toList()
+        ..sort((a, b) => (a['avg_score'] as double).compareTo(b['avg_score'] as double));
+
+      // Keep only lowest 10
+      if (_bqH5SourceSatisfactionData.length > 10) {
+        _bqH5SourceSatisfactionData = _bqH5SourceSatisfactionData.sublist(0, 10);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      print('❌ Error loading BQ H.5: $e');
+    }
   }
 
   /// ✅ STREAMS EN TIEMPO REAL

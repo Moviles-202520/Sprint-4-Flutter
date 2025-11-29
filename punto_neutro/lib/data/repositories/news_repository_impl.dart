@@ -77,6 +77,47 @@ class NewsRepositoryImpl implements NewsRepository {
     await Future.delayed(const Duration(milliseconds: 800));
     print('Comment enviado: ${comment.toJson()}');
   }
+
+  @override
+  Future<NewsItem> createNewsArticle({
+    required String title,
+    required String shortDescription,
+    required String longDescription,
+    required String categoryId,
+    required String authorId,
+    required String authorType,
+    required String authorInstitution,
+    String? imageUrl,
+    String? originalSourceUrl,
+    bool isDraft = false,
+  }) async {
+    // Mock implementation - just delay and return a fake news item
+    await Future.delayed(const Duration(milliseconds: 800));
+    
+    return NewsItem(
+      news_item_id: DateTime.now().millisecondsSinceEpoch.toString(),
+      user_profile_id: authorId,
+      title: title,
+      short_description: shortDescription,
+      long_description: longDescription,
+      image_url: imageUrl ?? '',
+      category_id: categoryId,
+      author_type: authorType,
+      author_institution: authorInstitution,
+      days_since: 0,
+      comments_count: 0,
+      average_reliability_score: 0.0,
+      is_fake: false,
+      is_verified_source: false,
+      is_verified_data: false,
+      is_recognized_author: false,
+      is_manipulated: false,
+      original_source_url: originalSourceUrl ?? '',
+      publication_date: DateTime.now(),
+      added_to_app_date: DateTime.now(),
+      total_ratings: 0,
+    );
+  }
   
   @override
   Future<int> getRatingsCount(String news_item_id) {
