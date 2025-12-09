@@ -161,7 +161,7 @@ class NotificationSyncWorker {
       ),
       backoffPolicy: BackoffPolicy.exponential,
       backoffPolicyDelay: const Duration(seconds: 2),
-      existingWorkPolicy: ExistingWorkPolicy.keep, // No duplicar
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep, // No duplicar
     );
 
     print('✅ [Sync Worker] Tarea periódica registrada (cada 15 min)');

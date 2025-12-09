@@ -4,6 +4,7 @@
 // Features: Validation, draft saving, publishing, preview
 // =====================================================
 
+import 'dart:async'; // 👈 NUEVO para Timer
 import 'package:flutter/foundation.dart';
 import '../../domain/models/news_creation_data.dart';
 import '../../domain/repositories/news_repository.dart';
@@ -25,6 +26,13 @@ class CreateNewsViewModel extends ChangeNotifier {
   String? _error;
   String? _successMessage;
 
+  // 🔁 Estado para AUTOSAVE con throttle
+  Timer? _autosaveTimer;
+  static const Duration _autosaveDelay = Duration(seconds: 2);
+  String _lastAutosavedTitle = '';
+  String _lastAutosavedShortDescription = '';
+  String _lastAutosavedLongDescription = '';
+
   // Getters
   NewsCreationData get data => _data;
   bool get isSaving => _isSaving;
@@ -33,11 +41,12 @@ class CreateNewsViewModel extends ChangeNotifier {
   String? get successMessage => _successMessage;
   bool get isValid => _data.isValid;
   String? get validationError => _data.validationError;
-  bool get hasUnsavedChanges => _data.title.isNotEmpty || 
-                                 _data.shortDescription.isNotEmpty || 
-                                 _data.longDescription.isNotEmpty;
+  bool get hasUnsavedChanges =>
+      _data.title.isNotEmpty ||
+          _data.shortDescription.isNotEmpty ||
+          _data.longDescription.isNotEmpty;
 
-  // Form field getters
+  // Campos individuales
   String get title => _data.title;
   String get shortDescription => _data.shortDescription;
   String get longDescription => _data.longDescription;
@@ -47,10 +56,52 @@ class CreateNewsViewModel extends ChangeNotifier {
   String get authorType => _data.authorType;
   String get authorInstitution => _data.authorInstitution;
 
+  // -------------------------------------------------
+  // Helpers internos de autosave
+  // -------------------------------------------------
+
+  bool get _hasChangesSinceLastAutosave =>
+      _data.title != _lastAutosavedTitle ||
+          _data.shortDescription != _lastAutosavedShortDescription ||
+          _data.longDescription != _lastAutosavedLongDescription;
+
+  void _scheduleAutosaveIfNeeded() {
+    // Cancelar cualquier timer previo
+    _autosaveTimer?.cancel();
+
+    // Si no hay cambios significativos, no hacemos nada
+    if (!hasUnsavedChanges || !_hasChangesSinceLastAutosave) {
+      return;
+    }
+
+    // Programar autosave en X segundos
+    _autosaveTimer = Timer(_autosaveDelay, () {
+      _performAutosave();
+    });
+  }
+
+  Future<void> _performAutosave() async {
+    // Evitar solapar con un guardado manual
+    if (_isSaving) return;
+    if (!hasUnsavedChanges || !_hasChangesSinceLastAutosave) return;
+
+    final success = await saveAsDraft();
+    if (success) {
+      _lastAutosavedTitle = _data.title;
+      _lastAutosavedShortDescription = _data.shortDescription;
+      _lastAutosavedLongDescription = _data.longDescription;
+    }
+  }
+
+  // -------------------------------------------------
+  // Actualización de campos (ahora con autosave)
+  // -------------------------------------------------
+
   /// Update title
   void updateTitle(String value) {
     _data = _data.copyWith(title: value);
     _clearMessages();
+    _scheduleAutosaveIfNeeded(); // 👈 NUEVO
     notifyListeners();
   }
 
@@ -58,6 +109,7 @@ class CreateNewsViewModel extends ChangeNotifier {
   void updateShortDescription(String value) {
     _data = _data.copyWith(shortDescription: value);
     _clearMessages();
+    _scheduleAutosaveIfNeeded(); // 👈 NUEVO
     notifyListeners();
   }
 
@@ -65,6 +117,7 @@ class CreateNewsViewModel extends ChangeNotifier {
   void updateLongDescription(String value) {
     _data = _data.copyWith(longDescription: value);
     _clearMessages();
+    _scheduleAutosaveIfNeeded(); // 👈 NUEVO
     notifyListeners();
   }
 
@@ -72,6 +125,7 @@ class CreateNewsViewModel extends ChangeNotifier {
   void updateCategory(String value) {
     _data = _data.copyWith(categoryId: value);
     _clearMessages();
+    _scheduleAutosaveIfNeeded(); // opcional, pero útil si cambia mucho
     notifyListeners();
   }
 
@@ -79,6 +133,7 @@ class CreateNewsViewModel extends ChangeNotifier {
   void updateImageUrl(String? value) {
     _data = _data.copyWith(imageUrl: value);
     _clearMessages();
+    _scheduleAutosaveIfNeeded();
     notifyListeners();
   }
 
@@ -86,6 +141,7 @@ class CreateNewsViewModel extends ChangeNotifier {
   void updateOriginalSourceUrl(String? value) {
     _data = _data.copyWith(originalSourceUrl: value);
     _clearMessages();
+    _scheduleAutosaveIfNeeded();
     notifyListeners();
   }
 
@@ -93,6 +149,7 @@ class CreateNewsViewModel extends ChangeNotifier {
   void updateAuthorType(String value) {
     _data = _data.copyWith(authorType: value);
     _clearMessages();
+    _scheduleAutosaveIfNeeded();
     notifyListeners();
   }
 
@@ -100,8 +157,13 @@ class CreateNewsViewModel extends ChangeNotifier {
   void updateAuthorInstitution(String value) {
     _data = _data.copyWith(authorInstitution: value);
     _clearMessages();
+    _scheduleAutosaveIfNeeded();
     notifyListeners();
   }
+
+  // -------------------------------------------------
+  // Acciones principales: guardar borrador / publicar
+  // -------------------------------------------------
 
   /// Save as draft (no validation required)
   Future<bool> saveAsDraft() async {
@@ -116,8 +178,11 @@ class CreateNewsViewModel extends ChangeNotifier {
       // Save as draft to repository
       await _repository.createNewsArticle(
         title: _data.title.isEmpty ? 'Borrador sin título' : _data.title,
-        shortDescription: _data.shortDescription.isEmpty ? 'Borrador' : _data.shortDescription,
-        longDescription: _data.longDescription.isEmpty ? 'Borrador en progreso' : _data.longDescription,
+        shortDescription:
+        _data.shortDescription.isEmpty ? 'Borrador' : _data.shortDescription,
+        longDescription: _data.longDescription.isEmpty
+            ? 'Borrador en progreso'
+            : _data.longDescription,
         categoryId: _data.categoryId.isEmpty ? '1' : _data.categoryId,
         authorId: _userProfileId,
         authorType: _data.authorType,
@@ -126,9 +191,15 @@ class CreateNewsViewModel extends ChangeNotifier {
         originalSourceUrl: _data.originalSourceUrl,
         isDraft: true,
       );
-      
+
       _successMessage = 'Borrador guardado exitosamente';
       _isSaving = false;
+
+      // Actualizar baseline de autosave
+      _lastAutosavedTitle = _data.title;
+      _lastAutosavedShortDescription = _data.shortDescription;
+      _lastAutosavedLongDescription = _data.longDescription;
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -175,7 +246,7 @@ class CreateNewsViewModel extends ChangeNotifier {
         originalSourceUrl: _data.originalSourceUrl,
         isDraft: false,
       );
-      
+
       _successMessage = '¡Noticia publicada exitosamente!';
       _isPublishing = false;
       notifyListeners();
@@ -192,6 +263,13 @@ class CreateNewsViewModel extends ChangeNotifier {
   void clearForm() {
     _data = NewsCreationData.empty();
     _clearMessages();
+
+    // Resetear estado de autosave
+    _autosaveTimer?.cancel();
+    _lastAutosavedTitle = '';
+    _lastAutosavedShortDescription = '';
+    _lastAutosavedLongDescription = '';
+
     notifyListeners();
   }
 
@@ -254,5 +332,11 @@ class CreateNewsViewModel extends ChangeNotifier {
       default:
         return false;
     }
+  }
+
+  @override
+  void dispose() {
+    _autosaveTimer?.cancel();
+    super.dispose();
   }
 }
