@@ -3,6 +3,25 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../../view_models/analytics_dashboard_viewmodel.dart';
 
+// Helper para colores adaptativos
+Color _getCardColor(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return isDark ? Colors.grey[850]! : Colors.grey[200]!;
+}
+
+Color _getTextColor(BuildContext context) {
+  return Theme.of(context).colorScheme.onSurface;
+}
+
+Color _getTextColorSecondary(BuildContext context) {
+  return Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+}
+
+Color _getBackgroundColor(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return isDark ? Colors.grey[900]! : Colors.white;
+}
+
 // Helper widget para las tarjetas de gráficas
 class _ChartCard extends StatelessWidget {
   final String title;
@@ -17,8 +36,11 @@ class _ChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Card(
-      color: Colors.grey[900],
+      color: isDark ? Colors.grey[900] : Colors.grey[100],
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -27,16 +49,19 @@ class _ChartCard extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               description,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                fontSize: 13,
+              ),
             ),
             const SizedBox(height: 16),
             child,
@@ -61,8 +86,6 @@ class AnalyticsDashboardScreen extends StatelessWidget {
             return Scaffold(
               appBar: AppBar(
                 title: const Text('Analytics Dashboard'),
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
               ),
               body: const Center(child: CircularProgressIndicator()),
             );
@@ -73,8 +96,6 @@ class AnalyticsDashboardScreen extends StatelessWidget {
             return Scaffold(
               appBar: AppBar(
                 title: const Text('Analytics Dashboard'),
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
               ),
               body: Center(
                 child: Column(
@@ -82,7 +103,10 @@ class AnalyticsDashboardScreen extends StatelessWidget {
                   children: [
                     Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                     const SizedBox(height: 16),
-                    Text('Error: ${vm.error}', style: const TextStyle(color: Colors.white)),
+                    Text(
+                      'Error: ${vm.error}',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                    ),
                   ],
                 ),
               ),
@@ -112,8 +136,6 @@ class AnalyticsDashboardScreen extends StatelessWidget {
           return Scaffold(
             appBar: AppBar(
               title: const Text('Analytics Dashboard'),
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
             ),
             body: ListView(
               padding: const EdgeInsets.all(16),
@@ -660,7 +682,7 @@ class AnalyticsDashboardScreen extends StatelessWidget {
                                 child: CircularProgressIndicator(
                                   value: hasData ? pct / 100 : 0.0,
                                   strokeWidth: 20,
-                                  backgroundColor: Colors.grey[800],
+                                  backgroundColor: _getCardColor(context),
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     hasData 
                                       ? (pct > 50 ? Colors.purple : Colors.blue)
@@ -673,17 +695,17 @@ class AnalyticsDashboardScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     hasData ? '${pct.toStringAsFixed(1)}%' : 'N/A',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 40,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                                      color: _getTextColor(context),
                                     ),
                                   ),
                                   Text(
                                     hasData ? 'Dark Mode' : 'Sin datos',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
-                                      color: Colors.white70,
+                                      color: _getTextColorSecondary(context),
                                     ),
                                   ),
                                 ],
@@ -695,7 +717,7 @@ class AnalyticsDashboardScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.grey[800],
+                            color: _getCardColor(context),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -716,7 +738,7 @@ class AnalyticsDashboardScreen extends StatelessWidget {
                                           ? 'La mayoría de usuarios prefiere el modo oscuro'
                                           : 'La mayoría de usuarios usa el modo claro')
                                       : 'No hay datos de preferencias de usuario'),
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: _getTextColor(context)),
                                 ),
                               ),
                             ],
@@ -726,7 +748,7 @@ class AnalyticsDashboardScreen extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text(
                             'Basado en $totalUsers usuario${totalUsers != 1 ? "s" : ""}',
-                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                            style: TextStyle(color: _getTextColorSecondary(context), fontSize: 12),
                           ),
                         ],
                       ],

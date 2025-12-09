@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Implementa las BQ específicas solicitadas para el dashboard
 class AnalyticsDashboardViewModel extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
-  
+
   // Streams para datos en tiempo real
   StreamSubscription<List<Map<String, dynamic>>>? _ratingsStream;
   StreamSubscription<List<Map<String, dynamic>>>? _sessionsStream;
@@ -15,16 +15,16 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
 
   // ✅ BQ1: Personal bias score vs community averages
   Map<String, dynamic> _personalBiasData = {};
-  
+
   // ✅ BQ2: Veracity ratings by source
   List<Map<String, dynamic>> _sourceVeracityData = [];
-  
+
   // ✅ BQ3: Conversion rate from shared articles
   Map<String, dynamic> _conversionRateData = {};
-  
+
   // ✅ BQ4: Rating distribution by category
   List<Map<String, dynamic>> _categoryDistributionData = [];
-  
+
   // ✅ BQ5: Engagement vs accuracy correlation
   Map<String, dynamic> _engagementAccuracyData = {};
 
@@ -35,7 +35,8 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
   Map<String, dynamic> get personalBiasData => _personalBiasData;
   List<Map<String, dynamic>> get sourceVeracityData => _sourceVeracityData;
   Map<String, dynamic> get conversionRateData => _conversionRateData;
-  List<Map<String, dynamic>> get categoryDistributionData => _categoryDistributionData;
+  List<Map<String, dynamic>> get categoryDistributionData =>
+      _categoryDistributionData;
   Map<String, dynamic> get engagementAccuracyData => _engagementAccuracyData;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -63,7 +64,6 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
 
       // Iniciar streams en tiempo real
       _startRealTimeUpdates();
-      
     } catch (e) {
       _error = 'Error cargando dashboard: $e';
       print('❌ Error en dashboard: $e');
@@ -112,38 +112,52 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
       if (userRatings.isEmpty) {
         _personalBiasData = {
           'user_ratings_count': 0,
-          'message': 'Necesitas más ratings para ver tu análisis'
+          'message': 'Necesitas más ratings para ver tu análisis',
         };
         return;
       }
 
       // Calcular promedios del usuario (solo reliability, bias no existe en Supabase)
-      final userAvgReliability = userRatings
-          .where((r) => r['assigned_reliability_score'] != null)
-          .map((r) => (r['assigned_reliability_score'] as num).toDouble())
-          .fold(0.0, (a, b) => a + b) / userRatings.where((r) => r['assigned_reliability_score'] != null).length;
+      final userAvgReliability =
+          userRatings
+              .where((r) => r['assigned_reliability_score'] != null)
+              .map((r) => (r['assigned_reliability_score'] as num).toDouble())
+              .fold(0.0, (a, b) => a + b) /
+          userRatings
+              .where((r) => r['assigned_reliability_score'] != null)
+              .length;
 
       // Calcular promedios de la comunidad
-      final validCommunityRatings = communityAvgs.where((r) => r['assigned_reliability_score'] != null).toList();
+      final validCommunityRatings = communityAvgs
+          .where((r) => r['assigned_reliability_score'] != null)
+          .toList();
       final communityAvgReliability = validCommunityRatings.isNotEmpty
           ? validCommunityRatings
-              .map((r) => (r['assigned_reliability_score'] as num).toDouble())
-              .reduce((a, b) => a + b) / validCommunityRatings.length
+                    .map(
+                      (r) =>
+                          (r['assigned_reliability_score'] as num).toDouble(),
+                    )
+                    .reduce((a, b) => a + b) /
+                validCommunityRatings.length
           : 0.0;
 
       _personalBiasData = {
         'user_profile_id': userProfileId,
         'user_ratings_count': userRatings.length,
         'user_avg_reliability': userAvgReliability,
-        'user_avg_bias': userAvgReliability, // Usar reliability como proxy (bias no existe)
+        'user_avg_bias':
+            userAvgReliability, // Usar reliability como proxy (bias no existe)
         'community_avg_reliability': communityAvgReliability,
-        'community_avg_bias': communityAvgReliability, // Usar reliability como proxy
+        'community_avg_bias':
+            communityAvgReliability, // Usar reliability como proxy
         'reliability_difference': userAvgReliability - communityAvgReliability,
         'bias_difference': 0.0, // No disponible en Supabase
         'last_updated': DateTime.now().toIso8601String(),
       };
 
-      print('✅ BQ1 Personal Bias Score cargado (${userRatings.length} ratings)');
+      print(
+        '✅ BQ1 Personal Bias Score cargado (${userRatings.length} ratings)',
+      );
     } catch (e) {
       print('❌ Error en BQ1: $e');
       _personalBiasData = {'error': e.toString()};
@@ -154,9 +168,7 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
   Future<void> _loadBQ2SourceVeracityAnalysis() async {
     try {
       // Query manual para obtener ratings por fuente (usando author_institution)
-      final ratingsWithSource = await _supabase
-          .from('rating_items')
-          .select('''
+      final ratingsWithSource = await _supabase.from('rating_items').select('''
             assigned_reliability_score,
             news_items!inner(
               news_item_id,
@@ -166,13 +178,14 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
 
       // Agrupar por fuente y calcular promedios
       final Map<String, List<double>> sourceRatings = {};
-      
+
       for (final rating in ratingsWithSource) {
-        final sourceName = rating['news_items']['author_institution'] as String? ?? 'Unknown';
+        final sourceName =
+            rating['news_items']['author_institution'] as String? ?? 'Unknown';
         final reliabilityRaw = rating['assigned_reliability_score'];
         if (reliabilityRaw == null) continue; // Skip nulls
         final reliability = (reliabilityRaw as num).toDouble();
-        
+
         sourceRatings.putIfAbsent(sourceName, () => []);
         sourceRatings[sourceName]!.add(reliability);
       }
@@ -180,7 +193,7 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
       _sourceVeracityData = sourceRatings.entries.map((entry) {
         final ratings = entry.value;
         final avg = ratings.reduce((a, b) => a + b) / ratings.length;
-        
+
         return {
           'source_name': entry.key,
           'avg_reliability': avg,
@@ -189,11 +202,15 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
       }).toList();
 
       // Ordenar por promedio descendente
-      _sourceVeracityData.sort((a, b) => 
-        (b['avg_reliability'] as double).compareTo(a['avg_reliability'] as double)
+      _sourceVeracityData.sort(
+        (a, b) => (b['avg_reliability'] as double).compareTo(
+          a['avg_reliability'] as double,
+        ),
       );
 
-      print('✅ BQ2 Source Veracity Analysis cargado (${_sourceVeracityData.length} fuentes)');
+      print(
+        '✅ BQ2 Source Veracity Analysis cargado (${_sourceVeracityData.length} fuentes)',
+      );
     } catch (e) {
       print('❌ Error en BQ2: $e');
       _sourceVeracityData = [];
@@ -223,14 +240,18 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
           .length;
 
       final convertedUsers = sharedArticleUsers
-          .where((shared) => activeUsers
-              .any((active) => active['user_profile_id'] == shared['user_profile_id']))
+          .where(
+            (shared) => activeUsers.any(
+              (active) =>
+                  active['user_profile_id'] == shared['user_profile_id'],
+            ),
+          )
           .map((e) => e['user_profile_id'])
           .toSet()
           .length;
 
-      final conversionRate = uniqueSharedUsers > 0 
-          ? (convertedUsers / uniqueSharedUsers) 
+      final conversionRate = uniqueSharedUsers > 0
+          ? (convertedUsers / uniqueSharedUsers)
           : 0.0;
 
       _conversionRateData = {
@@ -256,28 +277,29 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
   Future<void> _loadBQ4CategoryDistribution() async {
     try {
       // Query manual para obtener distribución por categoría
-      final ratingsWithCategory = await _supabase
-          .from('rating_items')
-          .select('''
+      final ratingsWithCategory = await _supabase.from('rating_items').select(
+        '''
             assigned_reliability_score,
             news_items!inner(
               category_id,
               categories!inner(name)
             )
-          ''');
+          ''',
+      );
 
       // Agrupar por categoría
       final Map<int, Map<String, dynamic>> categoryGroups = {};
-      
+
       for (final rating in ratingsWithCategory) {
         final categoryId = rating['news_items']['category_id'] as int?;
         if (categoryId == null) continue; // Skip nulls
-        
-        final categoryName = rating['news_items']['categories']['name'] as String? ?? 'Unknown';
+
+        final categoryName =
+            rating['news_items']['categories']['name'] as String? ?? 'Unknown';
         final reliabilityRaw = rating['assigned_reliability_score'];
         if (reliabilityRaw == null) continue; // Skip nulls
         final reliability = (reliabilityRaw as num).toDouble();
-        
+
         if (!categoryGroups.containsKey(categoryId)) {
           categoryGroups[categoryId] = {
             'category_id': categoryId,
@@ -285,14 +307,16 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
             'ratings': <double>[],
           };
         }
-        
-        (categoryGroups[categoryId]!['ratings'] as List<double>).add(reliability);
+
+        (categoryGroups[categoryId]!['ratings'] as List<double>).add(
+          reliability,
+        );
       }
 
       _categoryDistributionData = categoryGroups.values.map((group) {
         final ratings = group['ratings'] as List<double>;
         final avg = ratings.reduce((a, b) => a + b) / ratings.length;
-        
+
         return {
           'category_id': group['category_id'],
           'category_name': group['category_name'],
@@ -302,11 +326,14 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
       }).toList();
 
       // Ordenar por cantidad de ratings descendente
-      _categoryDistributionData.sort((a, b) => 
-        (b['rating_count'] as int).compareTo(a['rating_count'] as int)
+      _categoryDistributionData.sort(
+        (a, b) =>
+            (b['rating_count'] as int).compareTo(a['rating_count'] as int),
       );
 
-      print('✅ BQ4 Category Distribution cargado (${_categoryDistributionData.length} categorías)');
+      print(
+        '✅ BQ4 Category Distribution cargado (${_categoryDistributionData.length} categorías)',
+      );
     } catch (e) {
       print('❌ Error en BQ4: $e');
       _categoryDistributionData = [];
@@ -319,7 +346,9 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
       // Obtener datos de sesiones con duración
       final sessionData = await _supabase
           .from('user_sessions')
-          .select('user_session_id, duration_seconds, user_profile_id, articles_viewed')
+          .select(
+            'user_session_id, duration_seconds, user_profile_id, articles_viewed',
+          )
           .gt('duration_seconds', 0);
 
       // Obtener ratings por sesión (agrupando por user_profile_id)
@@ -331,7 +360,7 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
         _engagementAccuracyData = {
           'correlation': 0.0,
           'sample_size': 0,
-          'message': 'Datos insuficientes para calcular correlación'
+          'message': 'Datos insuficientes para calcular correlación',
         };
         print('⚠️ BQ5: Datos insuficientes');
         return;
@@ -342,18 +371,18 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
       for (final rating in ratingData) {
         final userId = rating['user_profile_id'] as int?;
         if (userId == null) continue; // Skip nulls
-        
+
         final reliabilityRaw = rating['assigned_reliability_score'];
         if (reliabilityRaw == null) continue; // Skip nulls
         final reliability = (reliabilityRaw as num).toDouble();
-        
+
         userRatings.putIfAbsent(userId, () => []);
         userRatings[userId]!.add(reliability);
       }
 
       // Calcular engagement y accuracy por usuario
       final List<Map<String, double>> userMetrics = [];
-      
+
       // Agrupar sesiones por usuario
       final Map<int, List<Map<String, dynamic>>> userSessions = {};
       for (final session in sessionData) {
@@ -366,8 +395,9 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
       for (final entry in userSessions.entries) {
         final userId = entry.key;
         final sessions = entry.value;
-        
-        if (userRatings.containsKey(userId) && userRatings[userId]!.isNotEmpty) {
+
+        if (userRatings.containsKey(userId) &&
+            userRatings[userId]!.isNotEmpty) {
           // Calcular engagement: suma de duration_seconds + articles_viewed
           final totalDuration = sessions
               .map((s) {
@@ -379,12 +409,16 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
           final totalArticles = sessions
               .map((s) => (s['articles_viewed'] as num?)?.toDouble() ?? 0)
               .reduce((a, b) => a + b);
-          
-          final engagementScore = totalDuration / 60.0 + (totalArticles * 5); // minutos + bonus por artículo
-          
+
+          final engagementScore =
+              totalDuration / 60.0 +
+              (totalArticles * 5); // minutos + bonus por artículo
+
           // Calcular accuracy: promedio de reliability scores
-          final avgAccuracy = userRatings[userId]!.reduce((a, b) => a + b) / userRatings[userId]!.length;
-          
+          final avgAccuracy =
+              userRatings[userId]!.reduce((a, b) => a + b) /
+              userRatings[userId]!.length;
+
           userMetrics.add({
             'engagement': engagementScore,
             'accuracy': avgAccuracy,
@@ -398,20 +432,23 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
       _engagementAccuracyData = {
         'correlation': correlation,
         'sample_size': userMetrics.length,
-        'avg_engagement': userMetrics.isEmpty ? 0.0 : 
-          userMetrics.map((m) => m['engagement']!).reduce((a, b) => a + b) / userMetrics.length,
-        'avg_accuracy': userMetrics.isEmpty ? 0.0 :
-          userMetrics.map((m) => m['accuracy']!).reduce((a, b) => a + b) / userMetrics.length,
+        'avg_engagement': userMetrics.isEmpty
+            ? 0.0
+            : userMetrics.map((m) => m['engagement']!).reduce((a, b) => a + b) /
+                  userMetrics.length,
+        'avg_accuracy': userMetrics.isEmpty
+            ? 0.0
+            : userMetrics.map((m) => m['accuracy']!).reduce((a, b) => a + b) /
+                  userMetrics.length,
         'last_updated': DateTime.now().toIso8601String(),
       };
 
-      print('✅ BQ5 Engagement-Accuracy Correlation cargado (r=${correlation.toStringAsFixed(3)}, n=${userMetrics.length})');
+      print(
+        '✅ BQ5 Engagement-Accuracy Correlation cargado (r=${correlation.toStringAsFixed(3)}, n=${userMetrics.length})',
+      );
     } catch (e) {
       print('❌ Error en BQ5: $e');
-      _engagementAccuracyData = {
-        'correlation': 0.0,
-        'sample_size': 0,
-      };
+      _engagementAccuracyData = {'correlation': 0.0, 'sample_size': 0};
     }
   }
 
@@ -433,7 +470,7 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
     for (int i = 0; i < n; i++) {
       final diffEngagement = engagements[i] - meanEngagement;
       final diffAccuracy = accuracies[i] - meanAccuracy;
-      
+
       numerator += diffEngagement * diffAccuracy;
       sumSqEngagement += diffEngagement * diffEngagement;
       sumSqAccuracy += diffAccuracy * diffAccuracy;
@@ -445,30 +482,55 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
 
   // ⚠️ NUEVAS BUSINESS QUESTIONS (Milestone H)
   Map<String, dynamic> _bqH1DarkModeData = {}; // H.1: Dark mode usage
-  List<Map<String, dynamic>> _bqH2NewsCreationData = []; // H.2: User contributions
-  Map<String, dynamic> _bqH3PersonalizationData = {}; // H.3: Personalization ratio
-  Map<String, dynamic> _bqH4UserActionsData = {}; // H.4: User awareness of actions
-  List<Map<String, dynamic>> _bqH5SourceSatisfactionData = []; // H.5: Source satisfaction
+  List<Map<String, dynamic>> _bqH2NewsCreationData =
+      []; // H.2: User contributions
+  Map<String, dynamic> _bqH3PersonalizationData =
+      {}; // H.3: Personalization ratio
+  Map<String, dynamic> _bqH4UserActionsData =
+      {}; // H.4: User awareness of actions
+  List<Map<String, dynamic>> _bqH5SourceSatisfactionData =
+      []; // H.5: Source satisfaction
 
   // Getters para las nuevas BQ
   Map<String, dynamic> get bqH1DarkModeData => _bqH1DarkModeData;
   List<Map<String, dynamic>> get bqH2NewsCreationData => _bqH2NewsCreationData;
   Map<String, dynamic> get bqH3PersonalizationData => _bqH3PersonalizationData;
   Map<String, dynamic> get bqH4UserActionsData => _bqH4UserActionsData;
-  List<Map<String, dynamic>> get bqH5SourceSatisfactionData => _bqH5SourceSatisfactionData;
+  List<Map<String, dynamic>> get bqH5SourceSatisfactionData =>
+      _bqH5SourceSatisfactionData;
 
   /// ✅ H.1: Dark mode usage percentage
   Future<void> loadBQH1DarkModeUsage() async {
     try {
-      final result = await _supabase.rpc('get_dark_mode_percentage');
-      _bqH1DarkModeData = {
-        'dark_mode_percentage': result ?? 0.0,
-        'total_users': 0, // Placeholder, adjust based on RPC return
-      };
+      // Usar RPC function que bypasea RLS para ver todos los usuarios
+      final result = await _supabase.rpc('get_dark_mode_stats');
+      
+      if (result == null) {
+        _bqH1DarkModeData = {
+          'dark_mode_percentage': 0.0,
+          'total_users': 0,
+          'message': 'Sin datos de preferencias de usuario',
+        };
+      } else {
+        final data = result as Map<String, dynamic>;
+        _bqH1DarkModeData = {
+          'dark_mode_percentage': (data['dark_mode_percentage'] ?? 0.0) as num,
+          'total_users': (data['total_users'] ?? 0) as int,
+          'dark_mode_users': (data['dark_mode_users'] ?? 0) as int,
+        };
+        
+        print('✅ BQ H.1: ${data['dark_mode_users']} de ${data['total_users']} usuarios con dark mode (${data['dark_mode_percentage']}%)');
+      }
+
       notifyListeners();
     } catch (e) {
       print('❌ Error loading BQ H.1: $e');
-      _bqH1DarkModeData = {'error': e.toString()};
+      _bqH1DarkModeData = {
+        'dark_mode_percentage': 0.0,
+        'total_users': 0,
+        'error': e.toString(),
+      };
+      notifyListeners();
     }
   }
 
@@ -489,10 +551,13 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
         weeklyData[weekKey] = (weeklyData[weekKey] ?? 0) + 1;
       }
 
-      _bqH2NewsCreationData = weeklyData.entries
-          .map((e) => {'week': e.key, 'count': e.value})
-          .toList()
-        ..sort((a, b) => (a['week'] as String).compareTo(b['week'] as String));
+      _bqH2NewsCreationData =
+          weeklyData.entries
+              .map((e) => {'week': e.key, 'count': e.value})
+              .toList()
+            ..sort(
+              (a, b) => (a['week'] as String).compareTo(b['week'] as String),
+            );
 
       notifyListeners();
     } catch (e) {
@@ -501,7 +566,9 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
   }
 
   int _getWeekNumber(DateTime date) {
-    final dayOfYear = int.parse(date.difference(DateTime(date.year, 1, 1)).inDays.toString());
+    final dayOfYear = int.parse(
+      date.difference(DateTime(date.year, 1, 1)).inDays.toString(),
+    );
     return ((dayOfYear - date.weekday + 10) / 7).floor();
   }
 
@@ -510,7 +577,16 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
     try {
       // Get current user's profile
       final authUserId = _supabase.auth.currentUser?.id;
-      if (authUserId == null) return;
+      if (authUserId == null) {
+        _bqH3PersonalizationData = {
+          'personalization_ratio': 0.0,
+          'total_impressions': 0,
+          'favorite_impressions': 0,
+          'message': 'Usuario no autenticado',
+        };
+        notifyListeners();
+        return;
+      }
 
       final userProfile = await _supabase
           .from('user_profiles')
@@ -518,7 +594,17 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
           .eq('user_auth_id', authUserId)
           .maybeSingle();
 
-      if (userProfile == null) return;
+      if (userProfile == null) {
+        _bqH3PersonalizationData = {
+          'personalization_ratio': 0.0,
+          'total_impressions': 0,
+          'favorite_impressions': 0,
+          'message': 'Perfil no encontrado',
+        };
+        notifyListeners();
+        return;
+      }
+
       final userProfileId = userProfile['user_profile_id'] as int;
 
       // Get user's favorite categories
@@ -527,26 +613,65 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
           .select('category_id')
           .eq('user_profile_id', userProfileId);
 
-      final favCategoryIds = favorites.map((f) => f['category_id'] as int).toList();
+      final favCategoryIds = favorites
+          .map((f) => f['category_id'] as int)
+          .toList();
 
-      // Get user's session impressions
-      final sessions = await _supabase
-          .from('user_sessions')
-          .select('user_session_id')
-          .eq('user_profile_id', userProfileId)
-          .limit(10); // Last 10 sessions
+      // Si no hay categorías favoritas, usar news_read_history como alternativa
+      if (favCategoryIds.isEmpty) {
+        // Alternativa: Calcular basado en lecturas en lugar de viewed_categories
+        final readHistory = await _supabase
+            .from('news_read_history')
+            .select('news_items!inner(category_id)')
+            .eq('user_profile_id', userProfileId)
+            .limit(100);
 
-      int totalImpressions = 0;
+        _bqH3PersonalizationData = {
+          'personalization_ratio': 0.0,
+          'total_impressions': readHistory.length,
+          'favorite_impressions': 0,
+          'message': 'No has seleccionado categorías favoritas',
+          'has_favorites': false,
+        };
+        notifyListeners();
+        return;
+      }
+
+      // Query optimizada: JOIN directo para obtener TODAS las categorías vistas
+      // en lugar de hacer N queries (una por sesión)
+      final viewedData = await _supabase
+          .from('viewed_categories')
+          .select('category_id, user_sessions!inner(user_profile_id)')
+          .eq('user_sessions.user_profile_id', userProfileId)
+          .limit(500); // Últimas 500 impresiones
+
+      int totalImpressions = viewedData.length;
       int favoriteImpressions = 0;
 
-      for (var session in sessions) {
-        final viewed = await _supabase
-            .from('viewed_categories')
-            .select('category_id')
-            .eq('user_session_id', session['user_session_id']);
+      for (var view in viewedData) {
+        final categoryId = view['category_id'] as int?;
+        if (categoryId != null && favCategoryIds.contains(categoryId)) {
+          favoriteImpressions++;
+        }
+      }
 
-        totalImpressions += viewed.length;
-        favoriteImpressions += viewed.where((v) => favCategoryIds.contains(v['category_id'])).length;
+      // Si viewed_categories está vacío, usar news_read_history como fallback
+      if (totalImpressions == 0) {
+        final readHistory = await _supabase
+            .from('news_read_history')
+            .select('news_items!inner(category_id)')
+            .eq('user_profile_id', userProfileId)
+            .limit(100);
+
+        for (var read in readHistory) {
+          final categoryId = read['news_items']['category_id'] as int?;
+          if (categoryId != null) {
+            totalImpressions++;
+            if (favCategoryIds.contains(categoryId)) {
+              favoriteImpressions++;
+            }
+          }
+        }
       }
 
       final personalizationRatio = totalImpressions > 0
@@ -557,11 +682,20 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
         'personalization_ratio': personalizationRatio,
         'total_impressions': totalImpressions,
         'favorite_impressions': favoriteImpressions,
+        'has_favorites': true,
+        'favorite_count': favCategoryIds.length,
       };
 
       notifyListeners();
     } catch (e) {
       print('❌ Error loading BQ H.3: $e');
+      _bqH3PersonalizationData = {
+        'personalization_ratio': 0.0,
+        'total_impressions': 0,
+        'favorite_impressions': 0,
+        'error': e.toString(),
+      };
+      notifyListeners();
     }
   }
 
@@ -614,72 +748,95 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
   /// ✅ H.5: Source satisfaction by category (lowest rated)
   Future<void> loadBQH5SourceSatisfaction() async {
     try {
+      // Query optimizada: JOIN directo en lugar de múltiples queries
       final result = await _supabase
-          .from('news_items')
-          .select('source_domain, category_id, news_item_id')
-          .not('source_domain', 'is', null)
-          .limit(500);
+          .from('rating_items')
+          .select('''
+            assigned_reliability_score,
+            news_items!inner(
+              source_domain,
+              category_id
+            )
+          ''')
+          .not('news_items.source_domain', 'is', null)
+          .limit(1000);
 
-      // Get ratings for these articles
+      if (result.isEmpty) {
+        _bqH5SourceSatisfactionData = [];
+        print('⚠️ BQ H.5: No hay ratings con fuentes');
+        notifyListeners();
+        return;
+      }
+
+      // Agrupar por source-category
       final Map<String, Map<String, dynamic>> sourceStats = {};
 
-      for (var item in result) {
-        final source = item['source_domain'] as String?;
-        final category = item['category_id'] as int?;
-        final newsId = item['news_item_id'] as int;
+      for (var rating in result) {
+        final newsItem = rating['news_items'];
+        final source = newsItem['source_domain'] as String?;
+        final category = newsItem['category_id'] as int?;
+        final score = rating['assigned_reliability_score'] as num?;
 
-        if (source == null || category == null) continue;
+        if (source == null || category == null || score == null) continue;
 
         final key = '$source-$category';
-
-        // Get ratings for this article
-        final ratings = await _supabase
-            .from('rating_items')
-            .select('assigned_reliability_score')
-            .eq('news_item_id', newsId);
-
-        if (ratings.isEmpty) continue;
-
-        final avgScore = ratings
-                .map((r) => (r['assigned_reliability_score'] as num).toDouble())
-                .reduce((a, b) => a + b) /
-            ratings.length;
 
         if (!sourceStats.containsKey(key)) {
           sourceStats[key] = {
             'source': source,
             'category': category,
-            'total_score': 0.0,
-            'count': 0,
+            'scores': <double>[],
           };
         }
 
-        sourceStats[key]!['total_score'] = (sourceStats[key]!['total_score'] as double) + avgScore;
-        sourceStats[key]!['count'] = (sourceStats[key]!['count'] as int) + 1;
+        (sourceStats[key]!['scores'] as List<double>).add(score.toDouble());
       }
 
-      // Calculate averages and sort
-      _bqH5SourceSatisfactionData = sourceStats.entries
-          .map((e) {
-            final avg = (e.value['total_score'] as double) / (e.value['count'] as int);
-            return {
-              'source': e.value['source'],
-              'category': e.value['category'],
-              'avg_score': avg,
-              'count': e.value['count'],
-            };
-          })
-          .toList()
-        ..sort((a, b) => (a['avg_score'] as double).compareTo(b['avg_score'] as double));
+      // Obtener nombres de categorías
+      final categories = await _supabase.from('categories').select('category_id, name');
+      final categoryMap = {for (var cat in categories) cat['category_id']: cat['name']};
 
-      // Keep only lowest 10
+      // Calcular promedios
+      _bqH5SourceSatisfactionData =
+          sourceStats.entries
+              .where(
+                (e) => (e.value['scores'] as List).length >= 1,
+              ) // Mínimo 1 rating
+              .map((e) {
+                final scores = e.value['scores'] as List<double>;
+                final avg = scores.reduce((a, b) => a + b) / scores.length;
+                final categoryId = e.value['category'] as int;
+                return {
+                  'source_domain': e.value['source'],
+                  'category_id': categoryId,
+                  'category_name': categoryMap[categoryId] ?? 'Unknown',
+                  'avg_reliability': avg,
+                  'rating_count': scores.length,
+                };
+              })
+              .toList()
+            ..sort(
+              (a, b) => (a['avg_reliability'] as double).compareTo(
+                b['avg_reliability'] as double,
+              ),
+            );
+
+      // Mantener solo las 10 peores
       if (_bqH5SourceSatisfactionData.length > 10) {
-        _bqH5SourceSatisfactionData = _bqH5SourceSatisfactionData.sublist(0, 10);
+        _bqH5SourceSatisfactionData = _bqH5SourceSatisfactionData.sublist(
+          0,
+          10,
+        );
       }
 
+      print(
+        '✅ BQ H.5: ${_bqH5SourceSatisfactionData.length} fuentes analizadas',
+      );
       notifyListeners();
     } catch (e) {
       print('❌ Error loading BQ H.5: $e');
+      _bqH5SourceSatisfactionData = [];
+      notifyListeners();
     }
   }
 
@@ -691,11 +848,11 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
         .from('rating_items')
         .stream(primaryKey: ['rating_item_id'])
         .listen((data) {
-      print('📊 Ratings actualizados en tiempo real');
-      // Re-calcular BQ1 y BQ4 cuando hay nuevos ratings
-      _loadBQ1PersonalBiasScore(null);
-      _loadBQ4CategoryDistribution();
-    });
+          print('📊 Ratings actualizados en tiempo real');
+          // Re-calcular BQ1 y BQ4 cuando hay nuevos ratings
+          _loadBQ1PersonalBiasScore(null);
+          _loadBQ4CategoryDistribution();
+        });
 
     // Session updates para BQ3 y BQ5
     _sessionsStream?.cancel();
@@ -703,9 +860,9 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
         .from('user_sessions')
         .stream(primaryKey: ['session_id'])
         .listen((data) {
-      print('📊 Sesiones actualizadas en tiempo real');
-      _loadBQ5EngagementAccuracyCorrelation();
-    });
+          print('📊 Sesiones actualizadas en tiempo real');
+          _loadBQ5EngagementAccuracyCorrelation();
+        });
 
     // Engagement updates para BQ3
     _engagementStream?.cancel();
@@ -713,9 +870,9 @@ class AnalyticsDashboardViewModel extends ChangeNotifier {
         .from('engagement_events')
         .stream(primaryKey: ['event_id'])
         .listen((data) {
-      print('📊 Engagement actualizado en tiempo real');
-      _loadBQ3ConversionRateAnalysis();
-    });
+          print('📊 Engagement actualizado en tiempo real');
+          _loadBQ3ConversionRateAnalysis();
+        });
   }
 
   @override
